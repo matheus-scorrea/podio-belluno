@@ -14,3 +14,5 @@ backend/storage/*.key
 backend/storage/pail
 .idea
 .vscode
+__pycache__/
+*.pyc
