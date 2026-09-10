@@ -1,0 +1,215 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Meta;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class FechamentoTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_apenas_direcao_ve_fechamento(): void
+    {
+        $org = $this->createOrg();
+
+        $this->actingAs($org['colaborador'])->getJson('/api/fechamento?ano=2026&mes=9')->assertForbidden();
+        $this->actingAs($org['lider'])->getJson('/api/fechamento?ano=2026&mes=9')->assertForbidden();
+        $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')->assertOk();
+    }
+
+    public function test_lista_usuario_com_bonus_de_meta_individual_batida(): void
+    {
+        $org = $this->createOrg();
+        $meta = $this->metaIndividual($org, 350.5);
+        $this->bater($meta);
+
+        $response = $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9');
+
+        $response->assertOk()
+            ->assertJsonPath('pessoas', 1)
+            ->assertJsonPath('metas_batidas', 1)
+            ->assertJsonPath('total_bonus', 350.5)
+            ->assertJsonPath('usuarios.0.id', $org['colaborador']->id)
+            ->assertJsonPath('usuarios.0.bonus_total', 350.5)
+            ->assertJsonPath('usuarios.0.itens.0.titulo', 'Meta da Ana')
+            ->assertJsonPath('usuarios.0.itens.0.valor_bonus', 350.5);
+    }
+
+    public function test_nao_lista_usuario_quando_meta_nao_foi_batida(): void
+    {
+        $org = $this->createOrg();
+        $this->metaIndividual($org, 200);
+
+        $response = $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9');
+
+        $response->assertOk()
+            ->assertJsonPath('pessoas', 0)
+            ->assertJsonPath('total_bonus', 0)
+            ->assertJsonPath('usuarios', []);
+    }
+
+    public function test_lista_usuario_mesmo_quando_bonus_da_meta_e_zero(): void
+    {
+        $org = $this->createOrg();
+        $meta = $this->metaIndividual($org, 0);
+        $this->bater($meta);
+
+        $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')
+            ->assertOk()
+            ->assertJsonPath('pessoas', 1)
+            ->assertJsonPath('metas_batidas', 1)
+            ->assertJsonPath('total_bonus', 0)
+            ->assertJsonPath('usuarios.0.id', $org['colaborador']->id)
+            ->assertJsonPath('usuarios.0.bonus_total', 0);
+    }
+
+    public function test_soma_bonus_de_varias_metas_do_mesmo_usuario(): void
+    {
+        $org = $this->createOrg();
+        $primeira = $this->metaIndividual($org, 100, 'Primeira');
+        $segunda = $this->metaIndividual($org, 50, 'Segunda');
+        $this->bater($primeira);
+        $this->bater($segunda);
+
+        $response = $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9');
+
+        $response->assertOk()
+            ->assertJsonPath('pessoas', 1)
+            ->assertJsonPath('total_bonus', 150)
+            ->assertJsonPath('usuarios.0.bonus_total', 150)
+            ->assertJsonCount(2, 'usuarios.0.itens');
+    }
+
+    public function test_meta_de_setor_paga_as_pessoas_do_setor(): void
+    {
+        $org = $this->createOrg();
+        $meta = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'departamento',
+            'titulo' => 'Meta TI',
+            'valor_bonus' => 80,
+        ]);
+        $meta->departamentos()->sync([$org['dept']->id]);
+        $this->bater($meta);
+
+        $ids = collect($this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')->json('usuarios'))
+            ->pluck('id');
+
+        $this->assertTrue($ids->contains($org['colaborador']->id));
+        $this->assertTrue($ids->contains($org['lider']->id));
+        $this->assertFalse($ids->contains($org['outroLider']->id));
+        $this->assertFalse($ids->contains($org['direcao']->id));
+    }
+
+    public function test_meta_global_nao_paga_direcao(): void
+    {
+        $org = $this->createOrg();
+        $meta = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'global',
+            'titulo' => 'Meta empresa',
+            'valor_bonus' => 40,
+        ]);
+        $this->bater($meta);
+
+        $ids = collect($this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')->json('usuarios'))
+            ->pluck('id');
+
+        $this->assertTrue($ids->contains($org['colaborador']->id));
+        $this->assertFalse($ids->contains($org['direcao']->id));
+    }
+
+    public function test_usuario_inativo_nao_entra_no_fechamento(): void
+    {
+        $org = $this->createOrg();
+        $org['colaborador']->update(['ativo' => false]);
+        $meta = $this->metaIndividual($org, 200);
+        $this->bater($meta);
+
+        $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')
+            ->assertOk()
+            ->assertJsonPath('pessoas', 0);
+    }
+
+    public function test_meta_comparativa_individual_paga_so_quem_bateu(): void
+    {
+        $org = $this->createOrg();
+        $colega = User::factory()->create([
+            'departamento_id' => $org['dept']->id,
+            'cargo_id' => $org['comumCargo']->id,
+        ]);
+
+        $meta = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'individual',
+            'chart_tipo' => 'column',
+            'titulo' => 'Comparativa',
+            'valor_bonus' => 90,
+        ]);
+        $meta->usuarios()->sync([$org['colaborador']->id, $colega->id]);
+
+        $this->actingAs($org['direcao'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 100,
+            'data_evento' => '2026-09-09',
+            'usuario_alvo_id' => $org['colaborador']->id,
+            'departamento_id' => $org['colaborador']->departamento_id,
+        ])->assertCreated();
+
+        $ids = collect($this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')->json('usuarios'))
+            ->pluck('id');
+
+        $this->assertTrue($ids->contains($org['colaborador']->id));
+        $this->assertFalse($ids->contains($colega->id));
+    }
+
+    public function test_filtro_por_setor(): void
+    {
+        $org = $this->createOrg();
+        $metaTi = $this->metaIndividual($org, 100, 'Meta TI');
+        $this->bater($metaTi);
+
+        $metaRh = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'individual',
+            'titulo' => 'Meta RH',
+            'valor_bonus' => 70,
+        ]);
+        $metaRh->usuarios()->sync([$org['outroLider']->id]);
+        $this->bater($metaRh);
+
+        $ti = $this->actingAs($org['direcao'])
+            ->getJson('/api/fechamento?ano=2026&mes=9&departamento_id='.$org['dept']->id)
+            ->json('usuarios');
+
+        $this->assertCount(1, $ti);
+        $this->assertSame($org['colaborador']->id, $ti[0]['id']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $org
+     */
+    private function metaIndividual(array $org, float $bonus, string $titulo = 'Meta da Ana'): Meta
+    {
+        $meta = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'individual',
+            'titulo' => $titulo,
+            'valor_bonus' => $bonus,
+        ]);
+        $meta->usuarios()->sync([$org['colaborador']->id]);
+
+        return $meta;
+    }
+
+    private function bater(Meta $meta, float $valor = 100): void
+    {
+        $meta->competencias()
+            ->where('ano', 2026)
+            ->where('mes', 9)
+            ->update(['valor_realizado' => $valor]);
+        $meta->unsetRelation('competencias');
+    }
+}

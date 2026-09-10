@@ -1,0 +1,16 @@
+/vendor/
+backend/vendor/
+node_modules/
+/dist/
+frontend/dist/
+.env
+backend/.env
+.env.production
+*.pem
+.phpunit.result.cache
+backend/public/hot
+backend/public/storage
+backend/storage/*.key
+backend/storage/pail
+.idea
+.vscode

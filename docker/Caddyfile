@@ -1,0 +1,25 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode gzip
+
+	handle /api* {
+		reverse_proxy php:8080
+	}
+
+	handle /sanctum* {
+		reverse_proxy php:8080
+	}
+
+	handle /up {
+		reverse_proxy php:8080
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
