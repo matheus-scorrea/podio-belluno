@@ -16,6 +16,7 @@ class DashboardService
         private AcessoMetas $acesso,
         private ProgressoService $progresso,
         private CompetenciaService $competencias,
+        private ComissaoService $comissao,
     ) {}
 
     public function montar(User $user, int $ano, int $mes, string $visao = 'global', ?int $departamentoId = null): array
@@ -121,6 +122,14 @@ class DashboardService
             $payload['series'] = $this->series($user, $meta, $ano, $mes);
         }
 
+        if ($meta->isComissao()) {
+            $payload['comissao'] = $this->serializarComissao($user, $meta, $ano, $mes);
+            $atingiu = collect($payload['comissao']['vendedores'])->contains(fn (array $v) => $v['nivel'] !== null);
+            $payload['percentual'] = $atingiu ? 100.0 : 0.0;
+            $payload['status'] = $atingiu ? 'concluida' : 'abaixo';
+            $payload['valor_realizado'] = collect($payload['comissao']['vendedores'])->sum('total');
+        }
+
         return $payload;
     }
 
@@ -174,9 +183,14 @@ class DashboardService
 
         $departamentos = Departamento::query()->where('ativo', true)->orderBy('nome')->get();
         foreach ($departamentos as $dept) {
-            $setor = $this->ordenarMetas($metas->filter(fn (array $m) => in_array($m['tipo_escopo'], ['departamento', 'cargo'], true)
-                && $this->metaNoDepartamento($m, $dept->id))->values());
+            $setor = $this->ordenarMetas($metas->filter(function (array $m) use ($dept) {
+                $comissao = ($m['chart']['tipo'] ?? '') === 'comissao';
+                $tipoSetor = in_array($m['tipo_escopo'], ['departamento', 'cargo'], true) || $comissao;
+
+                return $tipoSetor && $this->metaNoDepartamento($m, $dept->id);
+            })->map(fn (array $m) => $this->comissaoDoDepartamento($m, $dept->id))->values());
             $individuais = $metas->filter(fn (array $m) => $m['tipo_escopo'] === 'individual'
+                && ($m['chart']['tipo'] ?? '') !== 'comissao'
                 && $this->metaNoDepartamento($m, $dept->id))->values();
             $pessoas = $this->pessoasDoDepartamento($individuais, $dept->id);
 
@@ -287,6 +301,67 @@ class DashboardService
             'individual' => collect($meta['usuarios'] ?? [])->contains('departamento_id', $deptId),
             default => false,
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     * @return array<string, mixed>
+     */
+    private function comissaoDoDepartamento(array $meta, int $deptId): array
+    {
+        if (($meta['chart']['tipo'] ?? '') !== 'comissao' || ! isset($meta['comissao']['vendedores'])) {
+            return $meta;
+        }
+
+        $meta['comissao']['vendedores'] = collect($meta['comissao']['vendedores'])
+            ->where('departamento_id', $deptId)
+            ->values()
+            ->all();
+
+        return $meta;
+    }
+
+    /**
+     * @return array{niveis: list<array<string, mixed>>, vendedores: list<array<string, mixed>>}
+     */
+    private function serializarComissao(User $user, Meta $meta, int $ano, int $mes): array
+    {
+        $niveis = $this->comissao->niveisValidos($meta->niveis_comissao ?? []);
+        $ultimos = $this->progresso->ultimosPorGrao($meta, $ano, $mes);
+        $graos = $user->is_direcao
+            ? $this->acesso->graosDaMeta($meta)
+            : $this->acesso->graosLancaveis($user, $meta);
+
+        if ($user->perfil() === 'colaborador') {
+            $graos = $graos->filter(fn (array $g) => (int) ($g['usuario_alvo_id'] ?? 0) === (int) $user->id)->values();
+        } elseif ($user->isLider() && ! $user->is_direcao) {
+            $graos = $graos->filter(fn (array $g) => (int) ($g['departamento_id'] ?? 0) === (int) $user->departamento_id)->values();
+        }
+
+        $vendedores = $graos->map(function (array $grao) use ($ultimos, $niveis) {
+            $ultimo = $ultimos->first(fn (MetaLancamento $l) => (int) $l->usuario_alvo_id === (int) ($grao['usuario_alvo_id'] ?? 0));
+            $venda = (float) ($ultimo?->valor_realizado ?? 0);
+            $adesao = (float) ($ultimo?->valor_adesao ?? 0);
+            $calc = $this->comissao->calcular($niveis, $venda, $adesao);
+
+            return [
+                'usuario_id' => $grao['usuario_alvo_id'],
+                'nome' => $grao['label'],
+                'departamento_id' => $grao['departamento_id'] ?? null,
+                'nivel' => $calc['nivel'],
+                'venda' => $calc['venda'],
+                'adesao' => $calc['adesao'],
+                'percentual' => $calc['percentual'],
+                'comissao' => $calc['comissao'],
+                'premio' => $calc['premio'],
+                'total' => $calc['total'],
+            ];
+        })->values()->all();
+
+        return [
+            'niveis' => $niveis,
+            'vendedores' => $vendedores,
+        ];
     }
 
     private function kpis(Collection $metas): array

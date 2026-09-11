@@ -1,4 +1,6 @@
+import AddIcon from '@mui/icons-material/Add'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
 import {
   Alert,
   Autocomplete,
@@ -8,6 +10,7 @@ import {
   Divider,
   FormControl,
   FormControlLabel,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -31,12 +34,23 @@ import { useAuth } from '../auth/useAuth'
 import { previewMeta, renderMetaChart } from '../charts/chartFactory'
 import { PageHeader } from '../components/PageHeader'
 import { AppShell } from '../layout/AppShell'
+import { nivelEmBranco, TABELA_BELLUNO, type NivelComissao } from '../lib/comissao'
 import { MESES } from '../lib/labels'
 import { cargosParaEscopo, departamentosParaSelect } from '../lib/organizacao'
 import type { AuthUser, Cargo, ChartTipo, Departamento, MetaDetail, Sentido, TipoEscopo } from '../types'
 
 const steps = ['Dados', 'Escopo', 'Visualização']
 const cores = ['#00A8E8', '#0077B6', '#10B981', '#F59E0B', '#EF4444', '#0A1128']
+
+function tipoIndicador(chartTipo: ChartTipo): 'quantitativo' | 'marco' | 'comissao' {
+  if (chartTipo === 'marco') {
+    return 'marco'
+  }
+  if (chartTipo === 'comissao') {
+    return 'comissao'
+  }
+  return 'quantitativo'
+}
 
 export function MetaStepperPage() {
   const navigate = useNavigate()
@@ -61,6 +75,7 @@ export function MetaStepperPage() {
   const [deptsSel, setDeptsSel] = useState<Departamento[]>([])
   const [chartTipo, setChartTipo] = useState<ChartTipo>('gauge')
   const [chartCor, setChartCor] = useState('#00A8E8')
+  const [niveis, setNiveis] = useState<NivelComissao[]>(TABELA_BELLUNO)
   const [error, setError] = useState<string | null>(null)
   const [hydrated, setHydrated] = useState(!isEdit)
 
@@ -101,33 +116,38 @@ export function MetaStepperPage() {
     setDeptsSel(meta.departamentos ?? [])
     setChartTipo(meta.chart_tipo)
     setChartCor(meta.chart_cor)
+    if (meta.niveis_comissao && meta.niveis_comissao.length > 0) {
+      setNiveis(meta.niveis_comissao)
+    }
     setHydrated(true)
   }, [meta])
 
   useEffect(() => {
     const atual = meta?.competencias?.find((c) => c.ano === ano && c.mes === mes)
-    if (atual) {
+    if (atual && chartTipo !== 'comissao') {
       setValorMeta(String(atual.valor_meta))
     }
-  }, [ano, mes, meta])
+  }, [ano, mes, meta, chartTipo])
 
   function payload() {
     const ehMarco = chartTipo === 'marco'
+    const ehComissao = chartTipo === 'comissao'
     return {
       titulo,
       descricao,
       ano,
       mes,
       tipo_escopo: tipoEscopo,
-      valor_meta: ehMarco ? 1 : Number(valorMeta),
+      valor_meta: ehMarco ? 1 : ehComissao ? Math.max(...niveis.map((n) => Number(n.venda_min) || 0), 0) : Number(valorMeta),
       valor_bonus: Number(valorBonus),
-      unidade: ehMarco ? 'marco' : unidade,
-      sentido: ehMarco ? 'maior_melhor' : sentido,
+      unidade: ehMarco ? 'marco' : ehComissao ? 'R$' : unidade,
+      sentido: ehMarco || ehComissao ? 'maior_melhor' : sentido,
       chart_tipo: chartTipo,
       chart_cor: chartCor,
       usuario_ids: usuariosSel.map((u) => u.id),
       cargo_ids: cargosSel.map((c) => c.id),
       departamento_ids: deptsSel.map((d) => d.id),
+      niveis_comissao: ehComissao ? niveis : undefined,
     }
   }
 
@@ -151,6 +171,7 @@ export function MetaStepperPage() {
   })
 
   const preview = previewMeta(chartTipo, chartCor)
+  const ehComissao = chartTipo === 'comissao'
 
   if (user && !user.is_direcao) {
     return <Navigate to="/" replace />
@@ -185,7 +206,7 @@ export function MetaStepperPage() {
               ))}
             </Stepper>
             {active === 0 && (
-              <Stack spacing={2.5} sx={{ maxWidth: 640 }}>
+              <Stack spacing={2.5} sx={{ maxWidth: ehComissao ? 960 : 640 }}>
                 <TextField label="Título" value={titulo} onChange={(e) => setTitulo(e.target.value)} required />
                 <TextField
                   label="Descrição"
@@ -199,7 +220,7 @@ export function MetaStepperPage() {
                     Tipo de indicador
                   </Typography>
                   <RadioGroup
-                    value={chartTipo === 'marco' ? 'marco' : 'quantitativo'}
+                    value={tipoIndicador(chartTipo)}
                     onChange={(e) => {
                       if (e.target.value === 'marco') {
                         setChartTipo('marco')
@@ -208,7 +229,14 @@ export function MetaStepperPage() {
                         setSentido('maior_melhor')
                         return
                       }
-                      if (chartTipo === 'marco') {
+                      if (e.target.value === 'comissao') {
+                        setChartTipo('comissao')
+                        setUnidade('R$')
+                        setSentido('maior_melhor')
+                        setTipoEscopo((atual) => (atual === 'cargo' || atual === 'individual' ? atual : 'cargo'))
+                        return
+                      }
+                      if (chartTipo === 'marco' || chartTipo === 'comissao') {
                         setChartTipo('gauge')
                         setUnidade('%')
                         setValorMeta('100')
@@ -217,11 +245,17 @@ export function MetaStepperPage() {
                   >
                     <FormControlLabel value="quantitativo" control={<Radio />} label="Quantitativa (número, %, R$)" />
                     <FormControlLabel value="marco" control={<Radio />} label="Por marco (feito / não feito)" />
+                    <FormControlLabel value="comissao" control={<Radio />} label="Comissão de vendedor (receita + adesão)" />
                   </RadioGroup>
                 </FormControl>
                 {chartTipo === 'marco' && (
                   <Alert severity="info">
                     Esta meta é concluída quando o líder disparar o marco como feito. Não há alvo numérico.
+                  </Alert>
+                )}
+                {ehComissao && (
+                  <Alert severity="info">
+                    No mês entram só receita recorrente e adesão. Os gatilhos abaixo definem a faixa, o % e o prêmio.
                   </Alert>
                 )}
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -236,7 +270,7 @@ export function MetaStepperPage() {
                     </Select>
                   </FormControl>
                   <TextField label="Ano" type="number" value={ano} onChange={(e) => setAno(Number(e.target.value))} sx={{ flex: 1 }} />
-                  {chartTipo !== 'marco' && (
+                  {chartTipo !== 'marco' && !ehComissao && (
                     <FormControl sx={{ minWidth: 140, flex: 1 }}>
                       <InputLabel>Unidade</InputLabel>
                       <Select label="Unidade" value={unidade} onChange={(e) => setUnidade(String(e.target.value))}>
@@ -247,39 +281,128 @@ export function MetaStepperPage() {
                     </FormControl>
                   )}
                 </Stack>
-                {chartTipo !== 'marco' && (
-                  <>
-                    <TextField label="Alvo nesta competência" type="number" value={valorMeta} onChange={(e) => setValorMeta(e.target.value)} />
-                    <FormControl>
-                      <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
-                        Sentido do indicador
+                {ehComissao ? (
+                  <Stack spacing={1.5}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' } }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        Gatilhos de desempenho
                       </Typography>
-                      <RadioGroup row value={sentido} onChange={(e) => setSentido(e.target.value as Sentido)}>
-                        <FormControlLabel value="maior_melhor" control={<Radio />} label="Maior é melhor" />
-                        <FormControlLabel value="menor_melhor" control={<Radio />} label="Menor é melhor" />
-                      </RadioGroup>
-                    </FormControl>
-                  </>
+                      <Button size="small" onClick={() => setNiveis(TABELA_BELLUNO)}>
+                        Usar tabela Belluno (6 metas)
+                      </Button>
+                    </Stack>
+                    {niveis.map((nivel, indice) => (
+                      <Stack key={`${nivel.nome}-${indice}`} direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ alignItems: { md: 'center' } }}>
+                        <TextField
+                          label="Nome"
+                          value={nivel.nome}
+                          onChange={(e) => {
+                            const copia = [...niveis]
+                            copia[indice] = { ...copia[indice], nome: e.target.value }
+                            setNiveis(copia)
+                          }}
+                          sx={{ minWidth: 110, flex: 1 }}
+                        />
+                        <TextField
+                          label="Venda mín."
+                          type="number"
+                          value={nivel.venda_min}
+                          onChange={(e) => {
+                            const copia = [...niveis]
+                            copia[indice] = { ...copia[indice], venda_min: Number(e.target.value) }
+                            setNiveis(copia)
+                          }}
+                          sx={{ flex: 1 }}
+                        />
+                        <TextField
+                          label="Adesão mín."
+                          type="number"
+                          value={nivel.adesao_min}
+                          onChange={(e) => {
+                            const copia = [...niveis]
+                            copia[indice] = { ...copia[indice], adesao_min: Number(e.target.value) }
+                            setNiveis(copia)
+                          }}
+                          sx={{ flex: 1 }}
+                        />
+                        <TextField
+                          label="% comissão"
+                          type="number"
+                          value={nivel.percentual}
+                          onChange={(e) => {
+                            const copia = [...niveis]
+                            copia[indice] = { ...copia[indice], percentual: Number(e.target.value) }
+                            setNiveis(copia)
+                          }}
+                          sx={{ width: { md: 120 } }}
+                        />
+                        <TextField
+                          label="Prêmio"
+                          type="number"
+                          value={nivel.premio}
+                          onChange={(e) => {
+                            const copia = [...niveis]
+                            copia[indice] = { ...copia[indice], premio: Number(e.target.value) }
+                            setNiveis(copia)
+                          }}
+                          sx={{ flex: 1 }}
+                        />
+                        <IconButton
+                          aria-label="Remover gatilho"
+                          onClick={() => setNiveis(niveis.filter((_, i) => i !== indice))}
+                          disabled={niveis.length <= 1}
+                        >
+                          <DeleteOutlinedIcon />
+                        </IconButton>
+                      </Stack>
+                    ))}
+                    <Button
+                      startIcon={<AddIcon />}
+                      onClick={() => setNiveis([...niveis, nivelEmBranco(niveis.length + 1)])}
+                      sx={{ alignSelf: 'flex-start' }}
+                    >
+                      Adicionar gatilho
+                    </Button>
+                  </Stack>
+                ) : (
+                  chartTipo !== 'marco' && (
+                    <>
+                      <TextField label="Alvo nesta competência" type="number" value={valorMeta} onChange={(e) => setValorMeta(e.target.value)} />
+                      <FormControl>
+                        <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
+                          Sentido do indicador
+                        </Typography>
+                        <RadioGroup row value={sentido} onChange={(e) => setSentido(e.target.value as Sentido)}>
+                          <FormControlLabel value="maior_melhor" control={<Radio />} label="Maior é melhor" />
+                          <FormControlLabel value="menor_melhor" control={<Radio />} label="Menor é melhor" />
+                        </RadioGroup>
+                      </FormControl>
+                    </>
+                  )
                 )}
-                <TextField
-                  label="Valor do bônus"
-                  type="number"
-                  value={valorBonus}
-                  onChange={(e) => setValorBonus(e.target.value)}
-                  helperText="Pago no fechamento do mês quando a meta é batida. Não aparece no painel."
-                />
+                {!ehComissao && (
+                  <TextField
+                    label="Valor do bônus"
+                    type="number"
+                    value={valorBonus}
+                    onChange={(e) => setValorBonus(e.target.value)}
+                    helperText="Pago no fechamento do mês quando a meta é batida. Não aparece no painel."
+                  />
+                )}
               </Stack>
             )}
             {active === 1 && (
               <Stack spacing={2.5} sx={{ maxWidth: 720 }}>
                 <Typography variant="body2" color="text.secondary">
-                  Defina quem se enquadra nesta meta. O colaborador só vê o que estiver no próprio recorte.
+                  {ehComissao
+                    ? 'Escolha os vendedores ou o cargo. Cada pessoa lança a própria receita e adesão.'
+                    : 'Defina quem se enquadra nesta meta. O colaborador só vê o que estiver no próprio recorte.'}
                 </Typography>
                 <RadioGroup value={tipoEscopo} onChange={(e) => setTipoEscopo(e.target.value as TipoEscopo)}>
                   <FormControlLabel value="individual" control={<Radio />} label="Individual (usuários)" />
                   <FormControlLabel value="cargo" control={<Radio />} label="Por cargo" />
-                  <FormControlLabel value="departamento" control={<Radio />} label="Por setor" />
-                  <FormControlLabel value="global" control={<Radio />} label="Empresa (todos os setores)" />
+                  {!ehComissao && <FormControlLabel value="departamento" control={<Radio />} label="Por setor" />}
+                  {!ehComissao && <FormControlLabel value="global" control={<Radio />} label="Empresa (todos os setores)" />}
                 </RadioGroup>
                 {tipoEscopo === 'individual' && (
                   <Autocomplete
@@ -303,7 +426,7 @@ export function MetaStepperPage() {
                     renderInput={(params) => <TextField {...params} label="Cargos" />}
                   />
                 )}
-                {tipoEscopo === 'departamento' && (
+                {tipoEscopo === 'departamento' && !ehComissao && (
                   <Autocomplete
                     multiple
                     options={departamentosParaSelect(
@@ -326,6 +449,10 @@ export function MetaStepperPage() {
                 </Typography>
                 {chartTipo === 'marco' ? (
                   <Alert severity="info">O painel mostra só se o marco foi concluído ou ainda está pendente.</Alert>
+                ) : ehComissao ? (
+                  <Alert severity="info">
+                    O painel mostra a faixa atingida, a comissão, o prêmio e o total da remuneração variável.
+                  </Alert>
                 ) : (
                   <>
                     {chartTipo === 'column' && (tipoEscopo === 'global' || deptsSel.length > 1) && (
@@ -367,7 +494,7 @@ export function MetaStepperPage() {
                     />
                   ))}
                 </Stack>
-                <Paper sx={{ p: 2, maxWidth: 640 }}>{renderMetaChart(preview)}</Paper>
+                <Paper sx={{ p: 2, maxWidth: ehComissao ? 960 : 640 }}>{renderMetaChart(preview)}</Paper>
               </Stack>
             )}
             {error && (

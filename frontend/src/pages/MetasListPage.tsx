@@ -216,7 +216,7 @@ export function MetasListPage() {
                   </TableCell>
                   <TableCell>{chartLabel(m.chart_tipo)}</TableCell>
                   <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {m.chart_tipo === 'marco' ? 'Feito / pendente' : `${m.valor_meta} ${m.unidade}`}
+                    {m.chart_tipo === 'marco' ? 'Feito / pendente' : m.chart_tipo === 'comissao' ? 'Gatilhos de comissão' : `${m.valor_meta} ${m.unidade}`}
                   </TableCell>
                   <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>{formatBonus(m.valor_bonus)}</TableCell>
                   {podeEditar && (

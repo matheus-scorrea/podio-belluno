@@ -35,6 +35,7 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
   const [metaId, setMetaId] = useState<number | ''>('')
   const [graoKey, setGraoKey] = useState('')
   const [valor, setValor] = useState('')
+  const [valorAdesao, setValorAdesao] = useState('')
   const [dataEvento, setDataEvento] = useState<Dayjs>(dayjs(`${ano}-${String(mes).padStart(2, '0')}-09`))
   const [observacao, setObservacao] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -71,6 +72,7 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
       const grao = selected?.graos.find((g) => `${g.departamento_id}-${g.cargo_id}-${g.usuario_alvo_id}` === graoKey)
       await api.post(`/metas/${metaId}/lancamentos`, {
         valor_realizado: Number(valor),
+        valor_adesao: selected?.chart_tipo === 'comissao' ? Number(valorAdesao) : undefined,
         data_evento: dataEvento.format('YYYY-MM-DD'),
         observacao: observacao || null,
         departamento_id: grao?.departamento_id,
@@ -82,6 +84,7 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       await queryClient.invalidateQueries({ queryKey: ['lancaveis'] })
       setValor('')
+      setValorAdesao('')
       setObservacao('')
       onClose()
     },
@@ -97,7 +100,7 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
     >
       <Typography variant="h6">Registrar resultado</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Informe o valor ou dispare o marco na competência em aberto. Só aparecem metas que você pode registrar.
+        Informe o resultado na competência em aberto. Só aparecem metas que você pode registrar.
       </Typography>
       {isLoading && <CircularProgress size={24} />}
       {!isLoading && (data?.length ?? 0) === 0 && (
@@ -121,11 +124,11 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
             ))}
           </Select>
         </FormControl>
-        {selected?.comparativa && selected.graos.length > 0 && (
+        {(selected?.comparativa || selected?.por_grao || selected?.chart_tipo === 'comissao') && selected.graos.length > 0 && (
           <FormControl fullWidth>
-            <InputLabel>Alvo</InputLabel>
+            <InputLabel>{selected.chart_tipo === 'comissao' ? 'Vendedor' : 'Alvo'}</InputLabel>
             <Select
-              label="Alvo"
+              label={selected.chart_tipo === 'comissao' ? 'Vendedor' : 'Alvo'}
               value={graoKey}
               onChange={(e) => setGraoKey(String(e.target.value))}
               disabled={!user?.is_direcao && selected.graos.length === 1}
@@ -146,6 +149,25 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
             control={<Switch checked={valor === '1'} onChange={(e) => setValor(e.target.checked ? '1' : '0')} />}
             label={valor === '1' ? 'Marco concluído' : 'Marco pendente'}
           />
+        ) : selected?.chart_tipo === 'comissao' ? (
+          <>
+            <TextField
+              label="Valor total vendido (receita recorrente)"
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              type="number"
+              variant="filled"
+              slotProps={{ input: { sx: { fontSize: 28, color: 'primary.main', fontVariantNumeric: 'tabular-nums' } } }}
+            />
+            <TextField
+              label="Valor recebido em adesão"
+              value={valorAdesao}
+              onChange={(e) => setValorAdesao(e.target.value)}
+              type="number"
+              variant="filled"
+              slotProps={{ input: { sx: { fontSize: 28, color: 'primary.main', fontVariantNumeric: 'tabular-nums' } } }}
+            />
+          </>
         ) : (
           <TextField
             label="Valor realizado"
@@ -168,7 +190,7 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
           <Button onClick={onClose}>Cancelar</Button>
           <Button
             variant="contained"
-            disabled={(selected?.chart_tipo !== 'marco' && !valor) || !metaId || mutation.isPending}
+            disabled={(selected?.chart_tipo !== 'marco' && !valor) || (selected?.chart_tipo === 'comissao' && !valorAdesao) || !metaId || mutation.isPending}
             onClick={() => mutation.mutate()}
           >
             Salvar

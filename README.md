@@ -62,3 +62,4 @@ docker compose -f docker-compose.prod.yml exec php php artisan migrate --force
 - **Direção:** CRUD de usuários, departamentos (com cargos do setor) e metas (stepper de 3 etapas). Cargos e departamentos podem ser inativados sem apagar o histórico.
 - **Líder:** identificado quando `cargo_id` = `departamento.cargo_lider_id`. Vê todas as metas do próprio setor (e as da empresa) e lança progresso só desse perímetro. Não vê metas de outros setores.
 - **Colaborador:** feed apenas das metas em que se enquadra (individual, cargo, departamento ou global).
+- **Comissão de vendedor:** um cadastro com vários gatilhos (% e prêmio). No mês entram só receita recorrente e adesão; o sistema escolhe a maior faixa atingida.

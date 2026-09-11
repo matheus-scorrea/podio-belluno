@@ -44,6 +44,7 @@ class LancamentoController extends Controller
                     'valor_meta' => (float) $meta->getAttribute('valor_meta'),
                     'valor_realizado' => (float) $meta->getAttribute('valor_realizado'),
                     'comparativa' => $meta->isComparativa(),
+                    'por_grao' => $meta->isPorGrao(),
                     'chart_tipo' => $meta->chart_tipo,
                     'tipo_escopo' => $meta->tipo_escopo,
                     'graos' => $this->acesso->graosLancaveis($user, $meta),

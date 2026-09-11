@@ -2,6 +2,7 @@ import type { ChartTipo, DashboardMeta } from '../types'
 import { ColumnMetaChart } from './ColumnMetaChart'
 import { GaugeMetaChart } from './GaugeMetaChart'
 import { LineMetaChart } from './LineMetaChart'
+import { ComissaoMetaChart } from './ComissaoMetaChart'
 import { MarcoMetaChart } from './MarcoMetaChart'
 import { ProgressBarMetaChart } from './ProgressBarMetaChart'
 
@@ -11,6 +12,7 @@ const CHART_MAP = {
   line: LineMetaChart,
   column: ColumnMetaChart,
   marco: MarcoMetaChart,
+  comissao: ComissaoMetaChart,
 } as const
 
 export function renderMetaChart(meta: DashboardMeta) {
@@ -20,17 +22,18 @@ export function renderMetaChart(meta: DashboardMeta) {
 
 export function previewMeta(tipo: ChartTipo, cor: string): DashboardMeta {
   const marco = tipo === 'marco'
+  const comissao = tipo === 'comissao'
   return {
     id: 0,
-    titulo: marco ? 'Entregar o marco' : 'Pré-visualização',
-    subtitulo: marco ? 'Feito ou pendente' : 'Demo',
-    tipo_escopo: 'global',
+    titulo: comissao ? 'Comissão de vendedores' : marco ? 'Entregar o marco' : 'Pré-visualização',
+    subtitulo: comissao ? 'Receita + adesão' : marco ? 'Feito ou pendente' : 'Demo',
+    tipo_escopo: comissao ? 'cargo' : 'global',
     valor_meta: marco ? 1 : 100,
-    valor_realizado: marco ? 1 : 72,
-    unidade: marco ? 'marco' : '%',
+    valor_realizado: comissao ? 1750 : marco ? 1 : 72,
+    unidade: comissao ? 'R$' : marco ? 'marco' : '%',
     sentido: 'maior_melhor',
-    percentual: marco ? 100 : 72,
-    status: marco ? 'concluida' : 'esperado',
+    percentual: comissao || marco ? 100 : 72,
+    status: comissao || marco ? 'concluida' : 'esperado',
     pode_lancar: false,
     somente_leitura: false,
     chart: { tipo, cor },
@@ -44,5 +47,22 @@ export function previewMeta(tipo: ChartTipo, cor: string): DashboardMeta {
       { label: 'TI', valor: 75, percentual: 75 },
       { label: 'ADM', valor: 50, percentual: 50 },
     ],
+    comissao: {
+      niveis: [],
+      vendedores: [
+        {
+          usuario_id: 1,
+          nome: 'Vendedor demo',
+          departamento_id: 1,
+          nivel: 'META 2',
+          venda: 15000,
+          adesao: 15000,
+          percentual: 5,
+          comissao: 750,
+          premio: 1000,
+          total: 1750,
+        },
+      ],
+    },
   }
 }

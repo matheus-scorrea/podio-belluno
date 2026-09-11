@@ -1,5 +1,5 @@
 export type Perfil = 'direcao' | 'lider' | 'colaborador'
-export type ChartTipo = 'gauge' | 'progress_bar' | 'line' | 'column' | 'marco'
+export type ChartTipo = 'gauge' | 'progress_bar' | 'line' | 'column' | 'marco' | 'comissao'
 export type StatusMeta = 'concluida' | 'esperado' | 'atencao' | 'abaixo'
 export type TipoEscopo = 'individual' | 'cargo' | 'departamento' | 'global'
 export type Sentido = 'maior_melhor' | 'menor_melhor'
@@ -36,6 +36,32 @@ export type MetaSeries = {
   percentual: number
 }
 
+export type NivelComissao = {
+  nome: string
+  venda_min: number
+  adesao_min: number
+  percentual: number
+  premio: number
+}
+
+export type ComissaoVendedor = {
+  usuario_id: number | null
+  nome: string
+  departamento_id?: number | null
+  nivel: string | null
+  venda: number
+  adesao: number
+  percentual: number
+  comissao: number
+  premio: number
+  total: number
+}
+
+export type ComissaoPainel = {
+  niveis: NivelComissao[]
+  vendedores: ComissaoVendedor[]
+}
+
 export type DashboardMeta = {
   id: number
   titulo: string
@@ -53,6 +79,7 @@ export type DashboardMeta = {
   chart: { tipo: ChartTipo; cor: string }
   historico?: { em: string; valor: number }[]
   series?: MetaSeries[]
+  comissao?: ComissaoPainel
   departamentos?: { id: number; nome: string }[]
   cargos?: { id: number; nome: string; departamento_id: number }[]
   usuarios?: { id: number; name: string; cargo: string | null; departamento_id: number | null }[]
@@ -93,6 +120,7 @@ export type MetaLancavel = {
   valor_meta: number
   valor_realizado?: number
   comparativa: boolean
+  por_grao?: boolean
   chart_tipo: ChartTipo
   tipo_escopo: TipoEscopo
   graos: {
@@ -168,6 +196,7 @@ export type MetaDetail = {
   sentido: Sentido
   chart_tipo: ChartTipo
   chart_cor: string
+  niveis_comissao?: NivelComissao[] | null
   usuarios: AuthUser[]
   cargos: Cargo[]
   departamentos: Departamento[]

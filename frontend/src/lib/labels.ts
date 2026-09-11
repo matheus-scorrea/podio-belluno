@@ -43,6 +43,8 @@ export function chartLabel(tipo: ChartTipo | string): string {
       return 'Barras comparativas'
     case 'marco':
       return 'Por marco'
+    case 'comissao':
+      return 'Comissão'
     default:
       return tipo
   }

@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'chart_tipo',
     'chart_cor',
     'valor_bonus',
+    'niveis_comissao',
     'created_by',
     'ativo',
 ])]
@@ -38,6 +39,7 @@ class Meta extends Model
         return [
             'ativo' => 'boolean',
             'valor_bonus' => 'decimal:2',
+            'niveis_comissao' => 'array',
         ];
     }
 
@@ -79,6 +81,16 @@ class Meta extends Model
     public function isMarco(): bool
     {
         return $this->chart_tipo === 'marco';
+    }
+
+    public function isComissao(): bool
+    {
+        return $this->chart_tipo === 'comissao';
+    }
+
+    public function isPorGrao(): bool
+    {
+        return $this->isComparativa() || $this->isComissao();
     }
 
     public function enquadra(User $user): bool
@@ -173,6 +185,10 @@ class Meta extends Model
 
     public function percentual(): float
     {
+        if ($this->isComissao()) {
+            return (float) $this->getAttribute('valor_realizado') > 0 ? 100.0 : 0.0;
+        }
+
         return IndicadorStatus::percentual(
             (float) $this->getAttribute('valor_realizado'),
             (float) $this->getAttribute('valor_meta'),
@@ -182,7 +198,7 @@ class Meta extends Model
 
     public function status(): string
     {
-        if ($this->isMarco()) {
+        if ($this->isMarco() || $this->isComissao()) {
             return $this->percentual() >= 100 ? 'concluida' : 'abaixo';
         }
 

@@ -34,6 +34,12 @@ class AcessoMetas
         $meta->loadMissing(['departamentos', 'cargos', 'usuarios']);
 
         if ($user->isLider()) {
+            if ($meta->isComissao()) {
+                return $this->graosDaMeta($meta)->contains(
+                    fn (array $g) => (int) ($g['departamento_id'] ?? 0) === (int) $user->departamento_id
+                );
+            }
+
             if (! $meta->isComparativa()) {
                 return $this->liderPodeLancar($user, $meta);
             }
@@ -108,7 +114,7 @@ class AcessoMetas
         }
 
         return $this->todosGraos($meta)->filter(function (array $grao) use ($user, $meta) {
-            if (! $meta->isComparativa()) {
+            if (! $meta->isPorGrao()) {
                 return true;
             }
 
@@ -118,6 +124,10 @@ class AcessoMetas
 
     private function liderPodeLancar(User $user, Meta $meta, array $alvo = []): bool
     {
+        if ($meta->isComissao()) {
+            return $this->usuarioAlvoComissaoNoPerimetro($user, $meta, $alvo);
+        }
+
         if ($meta->isComparativa()) {
             return $this->alvoNoPerimetro($user, $meta, $alvo);
         }
@@ -131,6 +141,16 @@ class AcessoMetas
 
     private function colaboradorPodeLancar(User $user, Meta $meta, array $alvo = []): bool
     {
+        if ($meta->isComissao()) {
+            if (! $this->usuarioNoEscopoComissao($user, $meta)) {
+                return false;
+            }
+
+            $alvoId = (int) ($alvo['usuario_alvo_id'] ?? $user->id);
+
+            return $alvoId === (int) $user->id;
+        }
+
         if ($meta->tipo_escopo !== 'individual') {
             return false;
         }
@@ -150,6 +170,15 @@ class AcessoMetas
 
     private function todosGraos(Meta $meta): Collection
     {
+        if ($meta->isComissao()) {
+            return $this->vendedoresDaMeta($meta)->map(fn (User $u) => [
+                'label' => $u->name,
+                'departamento_id' => $u->departamento_id,
+                'cargo_id' => $u->cargo_id,
+                'usuario_alvo_id' => $u->id,
+            ])->values();
+        }
+
         if (! $meta->isComparativa()) {
             return collect([[
                 'label' => $meta->subtitulo(),
@@ -187,6 +216,48 @@ class AcessoMetas
             ]),
             default => collect(),
         };
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    private function vendedoresDaMeta(Meta $meta): Collection
+    {
+        $meta->loadMissing(['usuarios', 'cargos']);
+
+        if ($meta->tipo_escopo === 'individual') {
+            return $meta->usuarios->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
+        }
+
+        if ($meta->tipo_escopo === 'cargo') {
+            return User::query()
+                ->where('ativo', true)
+                ->whereIn('cargo_id', $meta->cargos->pluck('id'))
+                ->orderBy('name')
+                ->get();
+        }
+
+        return collect();
+    }
+
+    private function usuarioNoEscopoComissao(User $alvo, Meta $meta): bool
+    {
+        $meta->loadMissing(['usuarios', 'cargos']);
+
+        return match ($meta->tipo_escopo) {
+            'individual' => $meta->usuarios->contains('id', $alvo->id),
+            'cargo' => $meta->cargos->contains('id', $alvo->cargo_id),
+            default => false,
+        };
+    }
+
+    private function usuarioAlvoComissaoNoPerimetro(User $user, Meta $meta, array $alvo): bool
+    {
+        $alvoUser = User::find($alvo['usuario_alvo_id'] ?? 0);
+
+        return $alvoUser
+            && $alvoUser->departamento_id === $user->departamento_id
+            && $this->usuarioNoEscopoComissao($alvoUser, $meta);
     }
 
     private function cargoAlvoNoPerimetro(User $user, Meta $meta, array $alvo): bool

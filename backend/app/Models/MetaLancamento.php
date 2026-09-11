@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'meta_id',
     'data_evento',
     'valor_realizado',
+    'valor_adesao',
     'observacao',
     'departamento_id',
     'cargo_id',
@@ -23,6 +24,7 @@ class MetaLancamento extends Model
         return [
             'data_evento' => 'date',
             'valor_realizado' => 'decimal:2',
+            'valor_adesao' => 'decimal:2',
         ];
     }
 

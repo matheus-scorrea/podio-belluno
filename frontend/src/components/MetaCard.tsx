@@ -30,7 +30,11 @@ export function MetaCard({ meta, compact = false }: { meta: DashboardMeta; compa
               ? meta.percentual >= 100
                 ? 'Marco concluído neste período'
                 : 'Marco pendente neste período'
-              : `${meta.valor_realizado} / ${meta.valor_meta} ${meta.unidade}`}
+              : meta.chart.tipo === 'comissao'
+                ? meta.status === 'concluida'
+                  ? 'Faixa de comissão atingida'
+                  : 'Nenhuma faixa atingida ainda'
+                : `${meta.valor_realizado} / ${meta.valor_meta} ${meta.unidade}`}
           </Typography>
         </Box>
         <Stack spacing={0.5} sx={{ alignItems: 'flex-end', flexShrink: 0 }}>
@@ -50,7 +54,7 @@ export function MetaCard({ meta, compact = false }: { meta: DashboardMeta; compa
         </Stack>
       </Stack>
       <Box sx={{ mt: 1, flex: 1 }}>
-        {compact && meta.chart.tipo !== 'progress_bar' && meta.chart.tipo !== 'marco' ? (
+        {compact && meta.chart.tipo !== 'progress_bar' && meta.chart.tipo !== 'marco' && meta.chart.tipo !== 'comissao' ? (
           <Typography variant="h5" sx={{ fontVariantNumeric: 'tabular-nums', color: meta.chart.cor, mt: 2 }}>
             {meta.percentual}%
           </Typography>

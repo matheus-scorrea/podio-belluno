@@ -7,6 +7,7 @@ use App\Models\MetaCompetencia;
 use App\Models\MetaLancamento;
 use App\Models\User;
 use Carbon\Carbon;
+
 use Illuminate\Support\Facades\DB;
 
 class ProgressoService
@@ -31,6 +32,7 @@ class ProgressoService
                 'meta_id' => $meta->id,
                 'data_evento' => $dados['data_evento'],
                 'valor_realizado' => $valor,
+                'valor_adesao' => $meta->isComissao() ? (float) ($dados['valor_adesao'] ?? 0) : null,
                 'observacao' => $dados['observacao'] ?? null,
                 'departamento_id' => $alvo['departamento_id'],
                 'cargo_id' => $alvo['cargo_id'],
@@ -55,7 +57,17 @@ class ProgressoService
             ->whereYear('data_evento', $ano)
             ->whereMonth('data_evento', $mes);
 
-        if ($meta->isComparativa()) {
+        if ($meta->isComissao()) {
+            $comissao = app(ComissaoService::class);
+            $niveis = $comissao->niveisValidos($meta->niveis_comissao ?? []);
+            $competencia->valor_realizado = $this->ultimosPorGrao($meta, $ano, $mes)->sum(
+                fn (MetaLancamento $l) => $comissao->calcular(
+                    $niveis,
+                    (float) $l->valor_realizado,
+                    (float) ($l->valor_adesao ?? 0),
+                )['total']
+            );
+        } elseif ($meta->isComparativa()) {
             $valores = $this->ultimosPorGrao($meta, $ano, $mes)->pluck('valor_realizado');
             $competencia->valor_realizado = $valores->isEmpty()
                 ? 0
@@ -93,7 +105,7 @@ class ProgressoService
 
     private function normalizarAlvo(User $user, Meta $meta, array $dados): array
     {
-        if (! $meta->isComparativa()) {
+        if (! $meta->isPorGrao()) {
             return [
                 'departamento_id' => null,
                 'cargo_id' => null,
@@ -106,6 +118,20 @@ class ProgressoService
             'cargo_id' => $dados['cargo_id'] ?? null,
             'usuario_alvo_id' => $dados['usuario_alvo_id'] ?? null,
         ];
+
+        if ($meta->isComissao()) {
+            if (! $user->is_direcao && ! $user->isLider()) {
+                $pedido = (int) ($alvo['usuario_alvo_id'] ?? $user->id);
+                if ($pedido !== 0 && $pedido !== (int) $user->id) {
+                    abort(403);
+                }
+                $alvo['usuario_alvo_id'] = $user->id;
+                $alvo['departamento_id'] = $user->departamento_id;
+                $alvo['cargo_id'] = $user->cargo_id;
+            }
+
+            return $alvo;
+        }
 
         if (! $user->is_direcao && $user->isLider() && in_array($meta->tipo_escopo, ['global', 'departamento'], true)) {
             $alvo['departamento_id'] = $user->departamento_id;

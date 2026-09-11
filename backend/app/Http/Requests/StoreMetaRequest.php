@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreMetaRequest extends FormRequest
 {
@@ -24,7 +25,7 @@ class StoreMetaRequest extends FormRequest
             'valor_bonus' => ['nullable', 'numeric', 'min:0'],
             'unidade' => ['required', Rule::in(['%', 'R$', 'un', 'marco'])],
             'sentido' => ['required', Rule::in(['maior_melhor', 'menor_melhor'])],
-            'chart_tipo' => ['required', Rule::in(['gauge', 'progress_bar', 'line', 'column', 'marco'])],
+            'chart_tipo' => ['required', Rule::in(['gauge', 'progress_bar', 'line', 'column', 'marco', 'comissao'])],
             'chart_cor' => ['required', 'regex:/^#([A-Fa-f0-9]{6})$/'],
             'usuario_ids' => ['array', 'required_if:tipo_escopo,individual'],
             'usuario_ids.*' => ['exists:users,id'],
@@ -32,6 +33,24 @@ class StoreMetaRequest extends FormRequest
             'cargo_ids.*' => ['exists:cargos,id'],
             'departamento_ids' => ['array', 'required_if:tipo_escopo,departamento'],
             'departamento_ids.*' => ['exists:departamentos,id'],
+            'niveis_comissao' => ['nullable', 'array', 'required_if:chart_tipo,comissao', 'min:1'],
+            'niveis_comissao.*.nome' => ['required_with:niveis_comissao', 'string', 'max:40'],
+            'niveis_comissao.*.venda_min' => ['required_with:niveis_comissao', 'numeric', 'min:0'],
+            'niveis_comissao.*.adesao_min' => ['required_with:niveis_comissao', 'numeric', 'min:0'],
+            'niveis_comissao.*.percentual' => ['required_with:niveis_comissao', 'numeric', 'min:0'],
+            'niveis_comissao.*.premio' => ['required_with:niveis_comissao', 'numeric', 'min:0'],
+        ];
+    }
+
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                if ($this->input('chart_tipo') === 'comissao'
+                    && ! in_array($this->input('tipo_escopo'), ['individual', 'cargo'], true)) {
+                    $validator->errors()->add('tipo_escopo', 'Comissão de vendedor se aplica a pessoas ou cargos.');
+                }
+            },
         ];
     }
 }

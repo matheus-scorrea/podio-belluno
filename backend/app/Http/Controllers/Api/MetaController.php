@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMetaRequest;
 use App\Models\Meta;
+use App\Services\ComissaoService;
 use App\Services\CompetenciaService;
 use Illuminate\Http\Request;
 
@@ -134,8 +135,15 @@ class MetaController extends Controller
             $data['sentido'] = 'maior_melhor';
             $data['agregacao'] = 'ultimo';
             $data['valor_meta'] = 1;
+            $data['niveis_comissao'] = null;
+        } elseif (($data['chart_tipo'] ?? '') === 'comissao') {
+            $data['unidade'] = 'R$';
+            $data['sentido'] = 'maior_melhor';
+            $data['agregacao'] = 'soma';
+            $data['valor_meta'] = app(ComissaoService::class)->maiorVendaMin($data['niveis_comissao'] ?? []);
         } else {
             $data['agregacao'] = ($data['unidade'] ?? '') === '%' ? 'media' : 'soma';
+            $data['niveis_comissao'] = null;
         }
 
         return $data;
