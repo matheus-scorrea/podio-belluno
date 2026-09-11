@@ -83,12 +83,16 @@ class Meta extends Model
 
     public function enquadra(User $user): bool
     {
-        if ($user->is_direcao || $user->isLider()) {
+        if ($user->is_direcao) {
             return true;
         }
 
         if ($this->tipo_escopo === 'global') {
             return true;
+        }
+
+        if ($user->isLider()) {
+            return $this->noSetorDe($user);
         }
 
         $this->loadMissing(['usuarios', 'cargos', 'departamentos']);
@@ -100,8 +104,12 @@ class Meta extends Model
 
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        if ($user->is_direcao || $user->isLider()) {
+        if ($user->is_direcao) {
             return $query;
+        }
+
+        if ($user->isLider()) {
+            return $query->doSetor($user->departamento_id);
         }
 
         return $query->where(function (Builder $q) use ($user) {
@@ -110,6 +118,34 @@ class Meta extends Model
                 ->orWhereHas('cargos', fn (Builder $inner) => $inner->where('cargos.id', $user->cargo_id))
                 ->orWhereHas('departamentos', fn (Builder $inner) => $inner->where('departamentos.id', $user->departamento_id));
         });
+    }
+
+    public function scopeDoSetor(Builder $query, ?int $departamentoId): Builder
+    {
+        if (! $departamentoId) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        return $query->where(function (Builder $q) use ($departamentoId) {
+            $q->where('tipo_escopo', 'global')
+                ->orWhereHas('departamentos', fn (Builder $d) => $d->where('departamentos.id', $departamentoId))
+                ->orWhereHas('cargos', fn (Builder $c) => $c->where('departamento_id', $departamentoId))
+                ->orWhereHas('usuarios', fn (Builder $u) => $u->where('departamento_id', $departamentoId));
+        });
+    }
+
+    public function noSetorDe(User $user): bool
+    {
+        $deptId = $user->departamento_id;
+        if (! $deptId) {
+            return false;
+        }
+
+        $this->loadMissing(['usuarios', 'cargos', 'departamentos']);
+
+        return $this->departamentos->contains('id', $deptId)
+            || $this->cargos->contains(fn ($c) => (int) $c->departamento_id === (int) $deptId)
+            || $this->usuarios->contains(fn ($u) => (int) $u->departamento_id === (int) $deptId);
     }
 
     public function scopeCompetencia(Builder $query, int $ano, int $mes): Builder

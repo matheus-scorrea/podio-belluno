@@ -158,7 +158,7 @@ class MetaRbacTest extends TestCase
         $this->assertFalse($titulos->contains('Meta do RH'));
     }
 
-    public function test_lider_ve_dashboard_global_mas_nao_lanca_outro_setor(): void
+    public function test_lider_nao_ve_nem_lanca_meta_de_outro_setor(): void
     {
         $org = $this->createOrg();
 
@@ -172,14 +172,61 @@ class MetaRbacTest extends TestCase
 
         $dash = $this->actingAs($org['lider'])->getJson('/api/dashboard?ano=2026&mes=9');
         $dash->assertOk();
-        $this->assertTrue(collect($dash->json('metas'))->pluck('titulo')->contains('Meta RH'));
-        $item = collect($dash->json('metas'))->firstWhere('titulo', 'Meta RH');
-        $this->assertTrue($item['somente_leitura']);
+        $this->assertFalse(collect($dash->json('metas'))->pluck('titulo')->contains('Meta RH'));
+        $this->assertFalse(collect($dash->json('grupos'))->pluck('id')->contains($org['outro']->id));
+
+        $this->actingAs($org['lider'])->getJson("/api/metas/{$metaRh->id}?ano=2026&mes=9")->assertForbidden();
+        $this->actingAs($org['lider'])->getJson('/api/metas?ano=2026&mes=9')
+            ->assertOk()
+            ->assertJsonMissing(['titulo' => 'Meta RH']);
 
         $this->actingAs($org['lider'])->postJson("/api/metas/{$metaRh->id}/lancamentos", [
             'valor_realizado' => 50,
             'data_evento' => '2026-09-09',
         ])->assertForbidden();
+    }
+
+    public function test_lider_ve_todas_as_metas_do_proprio_setor(): void
+    {
+        $org = $this->createOrg();
+
+        $global = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'global',
+            'titulo' => 'Meta Empresa',
+        ]);
+        $this->assertNotNull($global);
+
+        $setor = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'departamento',
+            'titulo' => 'Meta TI',
+        ]);
+        $setor->departamentos()->sync([$org['dept']->id]);
+
+        $pessoa = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'individual',
+            'titulo' => 'Meta da Ana',
+        ]);
+        $pessoa->usuarios()->sync([$org['colaborador']->id]);
+
+        $outra = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'departamento',
+            'titulo' => 'Meta RH',
+        ]);
+        $outra->departamentos()->sync([$org['outro']->id]);
+
+        $dash = $this->actingAs($org['lider'])->getJson('/api/dashboard?ano=2026&mes=9');
+        $dash->assertOk();
+        $this->assertSame('setor', $dash->json('visao'));
+
+        $titulos = collect($dash->json('metas'))->pluck('titulo');
+        $this->assertTrue($titulos->contains('Meta Empresa'));
+        $this->assertTrue($titulos->contains('Meta TI'));
+        $this->assertTrue($titulos->contains('Meta da Ana'));
+        $this->assertFalse($titulos->contains('Meta RH'));
     }
 
     public function test_lider_lanca_apenas_seu_setor_em_meta_global_comparativa(): void
@@ -192,6 +239,11 @@ class MetaRbacTest extends TestCase
             'chart_tipo' => 'column',
             'titulo' => 'Treinamento',
         ]);
+
+        $dash = $this->actingAs($org['lider'])->getJson('/api/dashboard?ano=2026&mes=9');
+        $item = collect($dash->json('metas'))->firstWhere('titulo', 'Treinamento');
+        $this->assertNotNull($item);
+        $this->assertSame([$org['dept']->id], collect($item['series'])->pluck('departamento_id')->all());
 
         $this->actingAs($org['lider'])->postJson("/api/metas/{$meta->id}/lancamentos", [
             'valor_realizado' => 75,

@@ -31,12 +31,7 @@ class DashboardService
         if ($visao === 'setor') {
             $departamentoId = $user->is_direcao ? $departamentoId : $user->departamento_id;
             if ($departamentoId) {
-                $query->where(function ($q) use ($departamentoId) {
-                    $q->where('tipo_escopo', 'global')
-                        ->orWhereHas('departamentos', fn ($d) => $d->where('departamentos.id', $departamentoId))
-                        ->orWhereHas('cargos', fn ($c) => $c->where('departamento_id', $departamentoId))
-                        ->orWhereHas('usuarios', fn ($u) => $u->where('departamento_id', $departamentoId));
-                });
+                $query->doSetor($departamentoId);
             }
         }
 
@@ -123,16 +118,18 @@ class DashboardService
         }
 
         if ($meta->chart_tipo === 'column') {
-            $payload['series'] = $this->series($meta, $ano, $mes);
+            $payload['series'] = $this->series($user, $meta, $ano, $mes);
         }
 
         return $payload;
     }
 
-    private function series(Meta $meta, int $ano, int $mes): Collection
+    private function series(User $user, Meta $meta, int $ano, int $mes): Collection
     {
         $ultimos = $this->progresso->ultimosPorGrao($meta, $ano, $mes);
-        $graos = $this->acesso->graosDaMeta($meta);
+        $graos = $meta->isComparativa() && $user->isLider()
+            ? $this->acesso->graosLancaveis($user, $meta)
+            : $this->acesso->graosDaMeta($meta);
         $alvo = (float) $meta->getAttribute('valor_meta');
 
         return $graos->map(function (array $grao) use ($ultimos, $meta, $alvo) {
@@ -309,6 +306,10 @@ class DashboardService
     {
         if ($user->perfil() === 'colaborador') {
             return 'me';
+        }
+
+        if ($user->perfil() === 'lider' && $visao === 'global') {
+            return 'setor';
         }
 
         if (! in_array($visao, ['global', 'setor', 'me'], true)) {

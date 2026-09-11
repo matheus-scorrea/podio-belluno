@@ -39,7 +39,9 @@ export function DashboardPage() {
   const navigate = useNavigate()
   const [ano, setAno] = useState(2026)
   const [mes, setMes] = useState(9)
-  const [visao, setVisao] = useState(user?.perfil === 'colaborador' ? 'me' : 'global')
+  const [visao, setVisao] = useState(
+    user?.perfil === 'colaborador' ? 'me' : user?.perfil === 'lider' ? 'setor' : 'global',
+  )
   const [layout, setLayout] = useState<'analitica' | 'gerencial'>('analitica')
   const [departamentoId, setDepartamentoId] = useState<number | ''>('')
   const [grupoSelecionado, setGrupoSelecionado] = useState(TODOS)
@@ -91,7 +93,9 @@ export function DashboardPage() {
         subtitle={
           user?.perfil === 'colaborador'
             ? 'Suas metas individuais, do cargo e do setor, organizadas por área.'
-            : 'Leitura da competência: empresa, setores e pessoas.'
+            : user?.perfil === 'lider'
+              ? 'Todas as metas do seu setor nesta competência.'
+              : 'Leitura da competência: empresa, setores e pessoas.'
         }
         actions={
           user?.is_direcao ? (
@@ -124,7 +128,7 @@ export function DashboardPage() {
             <FormControl size="small" sx={{ minWidth: 180 }}>
               <InputLabel>Visão</InputLabel>
               <Select label="Visão" value={visao} onChange={(e) => setVisao(e.target.value)}>
-                <MenuItem value="global">Empresa</MenuItem>
+                {user?.perfil !== 'lider' && <MenuItem value="global">Empresa</MenuItem>}
                 <MenuItem value="setor">Setor</MenuItem>
                 <MenuItem value="me">Meu recorte</MenuItem>
               </Select>
