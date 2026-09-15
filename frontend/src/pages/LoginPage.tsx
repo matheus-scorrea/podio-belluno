@@ -28,8 +28,8 @@ export function LoginPage() {
     setError(null)
     setSubmitting(true)
     try {
-      await login(email, password)
-      navigate('/')
+      const logged = await login(email, password)
+      navigate(logged.must_change_password ? '/primeiro-acesso' : '/')
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status
       if (status === 419) {

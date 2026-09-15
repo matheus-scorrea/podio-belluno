@@ -3,6 +3,7 @@ import FlagIcon from '@mui/icons-material/FlagOutlined'
 import CorporateFareIcon from '@mui/icons-material/CorporateFareOutlined'
 import GroupIcon from '@mui/icons-material/GroupOutlined'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
+import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined'
 import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined'
@@ -35,12 +36,25 @@ import { useAuth } from '../auth/useAuth'
 import { LancamentoDrawer } from '../components/LancamentoDrawer'
 import { APP_NAME } from '../lib/brand'
 
+const navConta = {
+  to: '/conta',
+  label: 'Minha conta',
+  icon: <PersonOutlinedIcon fontSize="small" />,
+  match: (p: string) => p.startsWith('/conta'),
+}
+
 const navDirecao = [
   { to: '/', label: 'Painel', icon: <DashboardIcon fontSize="small" />, match: (p: string) => p === '/' },
   { to: '/metas', label: 'Metas', icon: <FlagIcon fontSize="small" />, match: (p: string) => p.startsWith('/metas') },
   { to: '/departamentos', label: 'Setores', icon: <CorporateFareIcon fontSize="small" />, match: (p: string) => p.startsWith('/departamentos') },
   { to: '/usuarios', label: 'Usuários', icon: <GroupIcon fontSize="small" />, match: (p: string) => p.startsWith('/usuarios') },
   { to: '/fechamento', label: 'Fechamento', icon: <PaymentsOutlinedIcon fontSize="small" />, match: (p: string) => p.startsWith('/fechamento') },
+  navConta,
+]
+
+const navEquipe = [
+  { to: '/', label: 'Painel', icon: <DashboardIcon fontSize="small" />, match: (p: string) => p === '/' },
+  navConta,
 ]
 
 type Props = {
@@ -102,9 +116,7 @@ export function AppShell({ children, ano, mes }: Props) {
     return <Navigate to="/login" replace />
   }
 
-  const links = user.is_direcao
-    ? navDirecao
-    : [{ to: '/', label: 'Painel', icon: <DashboardIcon fontSize="small" />, match: (p: string) => p === '/' }]
+  const links = user.is_direcao ? navDirecao : navEquipe
 
   async function handleLogout() {
     setNavOpen(false)
@@ -171,17 +183,25 @@ export function AppShell({ children, ano, mes }: Props) {
             Registrar resultado
           </Button>
           <Stack direction="row" spacing={{ xs: 0.75, md: 1.25 }} sx={{ alignItems: 'center', flexShrink: 0 }}>
-            <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
-              <Typography variant="body2" sx={{ fontWeight: 600, color: '#fff', lineHeight: 1.2, fontSize: 13 }}>
-                {user.name}
-              </Typography>
-              <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, lineHeight: 1.2, mt: 0.15 }}>
-                {user.perfil_label}
-              </Typography>
-            </Box>
-            <Avatar sx={{ bgcolor: '#00A8E8', color: '#0A1128', width: 34, height: 34, fontWeight: 700, fontSize: 14 }}>
-              {user.name.slice(0, 1)}
-            </Avatar>
+            <Stack
+              component={RouterLink}
+              to="/conta"
+              direction="row"
+              spacing={{ xs: 0.75, md: 1.25 }}
+              sx={{ alignItems: 'center', textDecoration: 'none', color: 'inherit' }}
+            >
+              <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#fff', lineHeight: 1.2, fontSize: 13 }}>
+                  {user.name}
+                </Typography>
+                <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, lineHeight: 1.2, mt: 0.15 }}>
+                  {user.perfil_label}
+                </Typography>
+              </Box>
+              <Avatar sx={{ bgcolor: '#00A8E8', color: '#0A1128', width: 34, height: 34, fontWeight: 700, fontSize: 14 }}>
+                {user.name.slice(0, 1)}
+              </Avatar>
+            </Stack>
             <Tooltip title="Sair">
               <IconButton color="inherit" onClick={() => void handleLogout()} aria-label="Sair" sx={{ display: { xs: 'none', sm: 'inline-flex' } }}>
                 <LogoutIcon fontSize="small" />
@@ -216,7 +236,14 @@ export function AppShell({ children, ano, mes }: Props) {
           </IconButton>
         </Stack>
         <Box sx={{ px: 2, pb: 2, display: { xs: 'block', sm: 'none' } }}>
-          <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+          <Stack
+            component={RouterLink}
+            to="/conta"
+            direction="row"
+            spacing={1.5}
+            onClick={() => setNavOpen(false)}
+            sx={{ alignItems: 'center', textDecoration: 'none', color: 'inherit' }}
+          >
             <Avatar sx={{ bgcolor: '#00A8E8', color: '#0A1128', width: 40, height: 40, fontWeight: 700 }}>
               {user.name.slice(0, 1)}
             </Avatar>

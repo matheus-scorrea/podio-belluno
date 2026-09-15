@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'direcao' => \App\Http\Middleware\EnsureDirecao::class,
             'usuario.ativo' => \App\Http\Middleware\EnsureUsuarioAtivo::class,
+            'senha.definida' => \App\Http\Middleware\EnsureSenhaDefinida::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

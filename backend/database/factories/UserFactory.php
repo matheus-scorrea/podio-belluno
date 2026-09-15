@@ -23,6 +23,7 @@ class UserFactory extends Factory
             'remember_token' => Str::random(10),
             'is_direcao' => false,
             'ativo' => true,
+            'must_change_password' => false,
             'departamento_id' => null,
             'cargo_id' => null,
         ];

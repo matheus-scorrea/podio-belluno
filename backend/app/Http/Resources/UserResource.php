@@ -22,6 +22,7 @@ class UserResource extends JsonResource
             'perfil' => $this->perfil(),
             'perfil_label' => $this->perfilLabel(),
             'ativo' => $this->ativo,
+            'must_change_password' => $this->must_change_password,
             'departamento_id' => $this->departamento_id,
             'cargo_id' => $this->cargo_id,
             'departamento' => $this->departamento ? [

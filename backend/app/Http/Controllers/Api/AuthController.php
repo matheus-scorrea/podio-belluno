@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Support\RegrasSenha;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -50,5 +52,38 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         return new UserResource($request->user());
+    }
+
+    public function atualizarSenha(Request $request)
+    {
+        $user = $request->user();
+        $regras = [
+            'password' => RegrasSenha::nova(),
+        ];
+
+        if (! $user->must_change_password) {
+            $regras['senha_atual'] = ['required', 'string'];
+        }
+
+        $data = $request->validate($regras);
+
+        if (! $user->must_change_password && ! Hash::check($data['senha_atual'], $user->password)) {
+            throw ValidationException::withMessages([
+                'senha_atual' => 'Senha atual incorreta.',
+            ]);
+        }
+
+        if (Hash::check($data['password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'password' => 'Escolha uma senha diferente da atual.',
+            ]);
+        }
+
+        $user->update([
+            'password' => $data['password'],
+            'must_change_password' => false,
+        ]);
+
+        return new UserResource($user->fresh());
     }
 }

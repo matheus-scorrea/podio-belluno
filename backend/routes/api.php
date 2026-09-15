@@ -15,25 +15,30 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
 Route::middleware(['auth:sanctum', 'usuario.ativo'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
-    Route::get('/dashboard', [DashboardController::class, 'show']);
+    Route::put('/me/senha', [AuthController::class, 'atualizarSenha']);
 
-    Route::get('/departamentos', [DepartamentoController::class, 'index']);
-    Route::get('/cargos', [CargoController::class, 'index']);
+    Route::middleware('senha.definida')->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'show']);
 
-    Route::get('/metas/lancaveis', [LancamentoController::class, 'lancaveis']);
-    Route::get('/metas', [MetaController::class, 'index']);
-    Route::get('/metas/{meta}', [MetaController::class, 'show']);
-    Route::get('/metas/{meta}/lancamentos', [LancamentoController::class, 'index']);
-    Route::post('/metas/{meta}/lancamentos', [LancamentoController::class, 'store']);
+        Route::get('/departamentos', [DepartamentoController::class, 'index']);
+        Route::get('/cargos', [CargoController::class, 'index']);
 
-    Route::middleware('direcao')->group(function () {
-        Route::apiResource('departamentos', DepartamentoController::class)->except(['index']);
-        Route::apiResource('cargos', CargoController::class)->except(['index']);
-        Route::apiResource('usuarios', UsuarioController::class);
-        Route::get('/fechamento', [FechamentoController::class, 'show']);
-        Route::post('/metas/abrir-competencia', [MetaController::class, 'abrirCompetencia']);
-        Route::post('/metas', [MetaController::class, 'store']);
-        Route::put('/metas/{meta}', [MetaController::class, 'update']);
-        Route::delete('/metas/{meta}', [MetaController::class, 'destroy']);
+        Route::get('/metas/lancaveis', [LancamentoController::class, 'lancaveis']);
+        Route::get('/metas', [MetaController::class, 'index']);
+        Route::get('/metas/{meta}', [MetaController::class, 'show']);
+        Route::get('/metas/{meta}/lancamentos', [LancamentoController::class, 'index']);
+        Route::post('/metas/{meta}/lancamentos', [LancamentoController::class, 'store']);
+
+        Route::middleware('direcao')->group(function () {
+            Route::apiResource('departamentos', DepartamentoController::class)->except(['index']);
+            Route::apiResource('cargos', CargoController::class)->except(['index']);
+            Route::apiResource('usuarios', UsuarioController::class);
+            Route::post('/usuarios/{usuario}/senha-temporaria', [UsuarioController::class, 'senhaTemporaria']);
+            Route::get('/fechamento', [FechamentoController::class, 'show']);
+            Route::post('/metas/abrir-competencia', [MetaController::class, 'abrirCompetencia']);
+            Route::post('/metas', [MetaController::class, 'store']);
+            Route::put('/metas/{meta}', [MetaController::class, 'update']);
+            Route::delete('/metas/{meta}', [MetaController::class, 'destroy']);
+        });
     });
 });

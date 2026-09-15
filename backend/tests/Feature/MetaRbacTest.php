@@ -105,31 +105,26 @@ class MetaRbacTest extends TestCase
         $this->actingAs($org['direcao'])->postJson('/api/usuarios', [
             'name' => 'Nova Pessoa',
             'email' => 'nova@bellunotec.com',
-            'password' => 'password',
-            'password_confirmation' => 'password',
             'is_direcao' => false,
             'departamento_id' => $org['dept']->id,
-            'cargo_id' => $org['comumCargo']->id,
         ])->assertUnprocessable();
 
-        $this->actingAs($org['direcao'])->postJson('/api/usuarios', [
+        $criado = $this->actingAs($org['direcao'])->postJson('/api/usuarios', [
             'name' => 'Nova Pessoa',
             'email' => 'nova@bellunotec.com',
-            'password' => 'SenhaForte1',
-            'is_direcao' => false,
-            'departamento_id' => $org['dept']->id,
-            'cargo_id' => $org['comumCargo']->id,
-        ])->assertUnprocessable();
-
-        $this->actingAs($org['direcao'])->postJson('/api/usuarios', [
-            'name' => 'Nova Pessoa',
-            'email' => 'nova@bellunotec.com',
-            'password' => 'SenhaForte1',
-            'password_confirmation' => 'SenhaForte1',
             'is_direcao' => false,
             'departamento_id' => $org['dept']->id,
             'cargo_id' => $org['comumCargo']->id,
         ])->assertCreated();
+
+        $senha = $criado->json('senha_temporaria');
+        $this->assertNotEmpty($senha);
+        $this->assertMatchesRegularExpression('/[A-Z]/', $senha);
+        $this->assertMatchesRegularExpression('/[a-z]/', $senha);
+        $this->assertMatchesRegularExpression('/\d/', $senha);
+        $this->assertTrue($criado->json('data.must_change_password'));
+        $this->assertStringContainsString('nova@bellunotec.com', $criado->json('mensagem'));
+        $this->assertStringContainsString($senha, $criado->json('mensagem'));
     }
 
     public function test_colaborador_so_ve_metas_em_que_se_enquadra(): void

@@ -7,9 +7,9 @@ use App\Http\Resources\UserResource;
 use App\Models\Meta;
 use App\Models\MetaLancamento;
 use App\Models\User;
+use App\Support\SenhaTemporaria;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 class UsuarioController extends Controller
@@ -26,16 +26,23 @@ class UsuarioController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'unique:users,email'],
-            'password' => $this->regrasSenha(obrigatoria: true),
             'is_direcao' => ['boolean'],
             'ativo' => ['boolean'],
             'departamento_id' => ['nullable', 'exists:departamentos,id', 'required_unless:is_direcao,true,1'],
             'cargo_id' => ['nullable', 'exists:cargos,id', 'required_unless:is_direcao,true,1'],
         ]);
 
-        $user = User::query()->create(collect($data)->except('password_confirmation')->all());
+        $senha = SenhaTemporaria::gerar();
+        $user = User::query()->create([
+            ...$data,
+            'password' => $senha,
+            'must_change_password' => true,
+        ]);
 
-        return (new UserResource($user))->response()->setStatusCode(201);
+        return $this->respostaComConvite($user, [
+            'senha_temporaria' => $senha,
+            'mensagem' => SenhaTemporaria::mensagem($user, $senha),
+        ], 201);
     }
 
     public function show(User $usuario)
@@ -48,16 +55,11 @@ class UsuarioController extends Controller
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:120'],
             'email' => ['sometimes', 'email', Rule::unique('users', 'email')->ignore($usuario->id)],
-            'password' => $this->regrasSenha(obrigatoria: false),
             'is_direcao' => ['boolean'],
             'ativo' => ['boolean'],
             'departamento_id' => ['nullable', 'exists:departamentos,id'],
             'cargo_id' => ['nullable', 'exists:cargos,id'],
         ]);
-
-        if (empty($data['password'])) {
-            unset($data['password'], $data['password_confirmation']);
-        }
 
         if (($data['is_direcao'] ?? $usuario->is_direcao) === true) {
             $data['departamento_id'] = null;
@@ -71,6 +73,13 @@ class UsuarioController extends Controller
         $usuario->update($data);
 
         return new UserResource($usuario->fresh());
+    }
+
+    public function senhaTemporaria(Request $request, User $usuario)
+    {
+        $this->impedirAcaoNaPropriaConta($request, $usuario, 'redefinir a senha de');
+
+        return $this->respostaComConvite($usuario, SenhaTemporaria::emitir($usuario));
     }
 
     public function destroy(Request $request, User $usuario)
@@ -92,15 +101,14 @@ class UsuarioController extends Controller
     }
 
     /**
-     * @return list<mixed>
+     * @param  array{senha_temporaria: string, mensagem: string}  $convite
      */
-    private function regrasSenha(bool $obrigatoria): array
+    private function respostaComConvite(User $usuario, array $convite, int $status = 200)
     {
-        $forca = Password::min(8)->mixedCase()->numbers();
-
-        return $obrigatoria
-            ? ['required', 'string', 'confirmed', $forca]
-            : ['nullable', 'string', 'confirmed', $forca];
+        return (new UserResource($usuario->fresh()))
+            ->additional($convite)
+            ->response()
+            ->setStatusCode($status);
     }
 
     private function impedirAcaoNaPropriaConta(Request $request, User $usuario, string $acao): void

@@ -1,5 +1,6 @@
 import AddIcon from '@mui/icons-material/Add'
 import BlockOutlinedIcon from '@mui/icons-material/BlockOutlined'
+import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined'
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined'
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
@@ -28,12 +29,13 @@ import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../auth/useAuth'
+import { ConviteAcessoDialog } from '../components/ConviteAcessoDialog'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { AppShell } from '../layout/AppShell'
-import type { AuthUser } from '../types'
+import type { AuthUser, ConviteAcesso } from '../types'
 
-type AcaoUsuario = 'inativar' | 'ativar' | 'excluir'
+type AcaoUsuario = 'inativar' | 'ativar' | 'excluir' | 'convite'
 
 function erroApi(err: unknown): string {
   const data = (err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } })?.response?.data
@@ -46,6 +48,7 @@ export function UsuariosPage() {
   const { user } = useAuth()
   const [alvo, setAlvo] = useState<{ usuario: AuthUser; acao: AcaoUsuario } | null>(null)
   const [erro, setErro] = useState<string | null>(null)
+  const [convite, setConvite] = useState<(ConviteAcesso & { nome: string }) | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['usuarios'],
@@ -56,17 +59,29 @@ export function UsuariosPage() {
     mutationFn: async ({ usuario, acao }: { usuario: AuthUser; acao: AcaoUsuario }) => {
       if (acao === 'excluir') {
         await api.delete(`/usuarios/${usuario.id}`)
-        return
+        return null
+      }
+      if (acao === 'convite') {
+        const { data: payload } = await api.post(`/usuarios/${usuario.id}/senha-temporaria`)
+        return {
+          senha_temporaria: payload.senha_temporaria as string,
+          mensagem: payload.mensagem as string,
+          nome: usuario.name,
+        }
       }
       await api.put(`/usuarios/${usuario.id}`, { ativo: acao === 'ativar' })
+      return null
     },
-    onSuccess: async () => {
+    onSuccess: async (gerado, { acao }) => {
       setAlvo(null)
       setErro(null)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['usuarios'] }),
         queryClient.invalidateQueries({ queryKey: ['usuario'] }),
       ])
+      if (acao === 'convite' && gerado) {
+        setConvite(gerado)
+      }
     },
     onError: (err) => setErro(erroApi(err)),
   })
@@ -79,7 +94,7 @@ export function UsuariosPage() {
     <AppShell ano={2026} mes={9}>
       <PageHeader
         title="Usuários"
-        subtitle="Contas da Direção, líderes e colaboradores."
+        subtitle="Contas da Direção, líderes e colaboradores. Gere a senha e o texto para enviar no chat."
         actions={
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/usuarios/novo')}>
             Novo usuário
@@ -119,9 +134,24 @@ export function UsuariosPage() {
                     </TableCell>
                     <TableCell>{u.departamento?.nome ?? '—'}</TableCell>
                     <TableCell>
-                      <Chip size="small" label={u.ativo ? 'Ativo' : 'Inativo'} color={u.ativo ? 'success' : 'default'} />
+                      <StackStatus ativo={u.ativo} pendenteSenha={u.must_change_password} />
                     </TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                      <Tooltip title="Gerar senha e texto do chat">
+                        <span>
+                          <IconButton
+                            color="primary"
+                            disabled={proprio}
+                            onClick={() => {
+                              setErro(null)
+                              setAlvo({ usuario: u, acao: 'convite' })
+                            }}
+                            aria-label="Gerar senha e texto do chat"
+                          >
+                            <ChatOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
                       <Tooltip title="Editar">
                         <IconButton color="primary" onClick={() => navigate(`/usuarios/${u.id}/editar`)} aria-label="Editar usuário">
                           <EditOutlinedIcon fontSize="small" />
@@ -178,7 +208,13 @@ export function UsuariosPage() {
       </Paper>
       <Dialog open={Boolean(alvo)} onClose={() => !mutation.isPending && setAlvo(null)}>
         <DialogTitle>
-          {alvo?.acao === 'excluir' ? 'Excluir usuário?' : alvo?.acao === 'inativar' ? 'Inativar usuário?' : 'Reativar usuário?'}
+          {alvo?.acao === 'excluir'
+            ? 'Excluir usuário?'
+            : alvo?.acao === 'inativar'
+              ? 'Inativar usuário?'
+              : alvo?.acao === 'ativar'
+                ? 'Reativar usuário?'
+                : 'Gerar senha temporária?'}
         </DialogTitle>
         <DialogContent>
           {alvo?.acao === 'excluir' && (
@@ -196,6 +232,12 @@ export function UsuariosPage() {
           {alvo?.acao === 'ativar' && (
             <Typography>“{alvo.usuario.name}” volta a poder entrar e aparecer nas atribuições.</Typography>
           )}
+          {alvo?.acao === 'convite' && (
+            <Typography>
+              A senha atual de “{alvo.usuario.name}” deixa de funcionar. Vamos gerar uma senha temporária e um texto para
+              você colar no chat. No próximo acesso essa pessoa cria a senha dela.
+            </Typography>
+          )}
           {erro && (
             <Alert severity="error" sx={{ mt: 2 }}>
               {erro}
@@ -207,15 +249,39 @@ export function UsuariosPage() {
             Cancelar
           </Button>
           <Button
-            color={alvo?.acao === 'ativar' ? 'primary' : 'error'}
+            color={alvo?.acao === 'ativar' || alvo?.acao === 'convite' ? 'primary' : 'error'}
             variant="contained"
             disabled={!alvo || mutation.isPending}
             onClick={() => alvo && mutation.mutate(alvo)}
           >
-            {alvo?.acao === 'excluir' ? 'Excluir' : alvo?.acao === 'inativar' ? 'Inativar' : 'Reativar'}
+            {alvo?.acao === 'excluir'
+              ? 'Excluir'
+              : alvo?.acao === 'inativar'
+                ? 'Inativar'
+                : alvo?.acao === 'ativar'
+                  ? 'Reativar'
+                  : 'Gerar e copiar'}
           </Button>
         </DialogActions>
       </Dialog>
+      <ConviteAcessoDialog
+        open={Boolean(convite)}
+        nome={convite?.nome}
+        senha={convite?.senha_temporaria ?? ''}
+        mensagem={convite?.mensagem ?? ''}
+        onClose={() => setConvite(null)}
+      />
     </AppShell>
+  )
+}
+
+function StackStatus({ ativo, pendenteSenha }: { ativo: boolean; pendenteSenha: boolean }) {
+  return (
+    <>
+      <Chip size="small" label={ativo ? 'Ativo' : 'Inativo'} color={ativo ? 'success' : 'default'} />
+      {pendenteSenha && ativo && (
+        <Chip size="small" label="Aguardando senha" sx={{ ml: 0.75 }} />
+      )}
+    </>
   )
 }

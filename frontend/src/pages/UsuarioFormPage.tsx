@@ -1,4 +1,5 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined'
 import {
   Alert,
   Box,
@@ -20,11 +21,13 @@ import { useEffect, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../auth/useAuth'
+import { ConviteAcessoDialog } from '../components/ConviteAcessoDialog'
 import { PageHeader } from '../components/PageHeader'
 import { AppShell } from '../layout/AppShell'
 import { cargosDoSetor, departamentosParaSelect } from '../lib/organizacao'
-import { SENHA_REQUISITOS, senhaAtendeRegras } from '../lib/senha'
-import type { AuthUser, Departamento } from '../types'
+import type { AuthUser, ConviteAcesso, Departamento } from '../types'
+
+type ConviteDialogo = ConviteAcesso & { nome: string }
 
 export function UsuarioFormPage() {
   const navigate = useNavigate()
@@ -34,14 +37,13 @@ export function UsuarioFormPage() {
   const isEdit = Boolean(id)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const [isDirecao, setIsDirecao] = useState(false)
   const [ativo, setAtivo] = useState(true)
   const [departamentoId, setDepartamentoId] = useState<number | ''>('')
   const [cargoId, setCargoId] = useState<number | ''>('')
   const [error, setError] = useState<string | null>(null)
   const [hydrated, setHydrated] = useState(!isEdit)
+  const [convite, setConvite] = useState<ConviteDialogo | null>(null)
 
   const { data: usuario, isLoading } = useQuery({
     queryKey: ['usuario', id],
@@ -61,8 +63,6 @@ export function UsuarioFormPage() {
     }
     setName(usuario.name)
     setEmail(usuario.email)
-    setPassword('')
-    setPasswordConfirmation('')
     setIsDirecao(usuario.is_direcao)
     setAtivo(usuario.ativo)
     setDepartamentoId(usuario.departamento_id ?? '')
@@ -70,12 +70,8 @@ export function UsuarioFormPage() {
     setHydrated(true)
   }, [usuario])
 
-  const senhaInformada = password.length > 0
-  const senhaValida = senhaAtendeRegras(password) && password === passwordConfirmation
-  const podeSalvar =
-    Boolean(name && email) &&
-    (isEdit ? !senhaInformada || senhaValida : senhaValida) &&
-    (isDirecao || (Boolean(departamentoId) && Boolean(cargoId)))
+  const podeSalvar = Boolean(name && email) && (isDirecao || (Boolean(departamentoId) && Boolean(cargoId)))
+  const proprio = Boolean(id) && Number(id) === user?.id
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -87,24 +83,47 @@ export function UsuarioFormPage() {
         departamento_id: isDirecao ? null : departamentoId || null,
         cargo_id: isDirecao ? null : cargoId || null,
       }
-      if (password) {
-        payload.password = password
-        payload.password_confirmation = passwordConfirmation
-      }
       if (isEdit && id) {
         await api.put(`/usuarios/${id}`, payload)
-        return
+        return null
       }
-      await api.post('/usuarios', payload)
+      const { data } = await api.post('/usuarios', payload)
+      return {
+        senha_temporaria: data.senha_temporaria as string,
+        mensagem: data.mensagem as string,
+        nome: name,
+      }
     },
-    onSuccess: async () => {
+    onSuccess: async (gerado) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['usuarios'] }),
         queryClient.invalidateQueries({ queryKey: ['usuario'] }),
       ])
+      if (gerado) {
+        setConvite(gerado)
+        return
+      }
       navigate('/usuarios')
     },
     onError: () => setError('Não foi possível salvar o usuário. Verifique os campos obrigatórios.'),
+  })
+
+  const conviteMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post(`/usuarios/${id}/senha-temporaria`)
+      return {
+        senha_temporaria: data.senha_temporaria as string,
+        mensagem: data.mensagem as string,
+        nome: name || usuario?.name || '',
+      }
+    },
+    onSuccess: async (gerado) => {
+      setError(null)
+      setConvite(gerado)
+      await queryClient.invalidateQueries({ queryKey: ['usuario', id] })
+      await queryClient.invalidateQueries({ queryKey: ['usuarios'] })
+    },
+    onError: () => setError('Não foi possível gerar uma nova senha temporária.'),
   })
 
   if (user && !user.is_direcao) {
@@ -115,7 +134,11 @@ export function UsuarioFormPage() {
     <AppShell ano={2026} mes={9}>
       <PageHeader
         title={isEdit ? 'Editar usuário' : 'Novo usuário'}
-        subtitle={isEdit ? 'Atualize perfil, setor e acesso desta pessoa.' : 'Cadastre direção, líderes e colaboradores.'}
+        subtitle={
+          isEdit
+            ? 'Atualize perfil, setor e acesso desta pessoa.'
+            : 'Cadastre a pessoa. Geramos uma senha temporária e um texto para você enviar no chat.'
+        }
         backTo={{ href: '/usuarios', label: 'Voltar para usuários' }}
       />
       <Paper sx={{ p: { xs: 2, md: 3.5 } }}>
@@ -128,31 +151,6 @@ export function UsuarioFormPage() {
             <Stack spacing={2.5} sx={{ maxWidth: 640 }}>
               <TextField label="Nome" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
               <TextField label="E-mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-              <TextField
-                label={isEdit ? 'Nova senha' : 'Senha'}
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required={!isEdit}
-                autoComplete="new-password"
-                helperText={isEdit ? `Deixe em branco para manter a senha atual. ${SENHA_REQUISITOS}` : SENHA_REQUISITOS}
-              />
-              {(!isEdit || senhaInformada) && (
-                <TextField
-                  label="Confirmar senha"
-                  type="password"
-                  value={passwordConfirmation}
-                  onChange={(e) => setPasswordConfirmation(e.target.value)}
-                  required={!isEdit || senhaInformada}
-                  autoComplete="new-password"
-                  error={passwordConfirmation.length > 0 && password !== passwordConfirmation}
-                  helperText={
-                    passwordConfirmation.length > 0 && password !== passwordConfirmation
-                      ? 'As senhas não coincidem.'
-                      : undefined
-                  }
-                />
-              )}
               <FormControlLabel
                 control={<Checkbox checked={isDirecao} onChange={(e) => setIsDirecao(e.target.checked)} />}
                 label="Direção"
@@ -163,7 +161,7 @@ export function UsuarioFormPage() {
                     <Checkbox
                       checked={ativo}
                       onChange={(e) => setAtivo(e.target.checked)}
-                      disabled={Boolean(id) && Number(id) === user?.id}
+                      disabled={proprio}
                     />
                   }
                   label="Usuário ativo"
@@ -223,17 +221,46 @@ export function UsuarioFormPage() {
               </Alert>
             )}
             <Divider sx={{ mt: 4, mb: 2.5 }} />
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between' }}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2}
+              sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' } }}
+            >
               <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate('/usuarios')}>
                 Voltar para usuários
               </Button>
-              <Button variant="contained" onClick={() => mutation.mutate()} disabled={!podeSalvar || mutation.isPending}>
-                {isEdit ? 'Salvar alterações' : 'Cadastrar usuário'}
-              </Button>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                {isEdit && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<ChatOutlinedIcon />}
+                    disabled={proprio || conviteMutation.isPending}
+                    onClick={() => conviteMutation.mutate()}
+                  >
+                    Gerar senha e texto do chat
+                  </Button>
+                )}
+                <Button variant="contained" onClick={() => mutation.mutate()} disabled={!podeSalvar || mutation.isPending}>
+                  {isEdit ? 'Salvar alterações' : 'Cadastrar e gerar acesso'}
+                </Button>
+              </Stack>
             </Stack>
           </>
         )}
       </Paper>
+      <ConviteAcessoDialog
+        open={Boolean(convite)}
+        nome={convite?.nome}
+        senha={convite?.senha_temporaria ?? ''}
+        mensagem={convite?.mensagem ?? ''}
+        onClose={() => {
+          const veioDoCadastro = !isEdit
+          setConvite(null)
+          if (veioDoCadastro) {
+            navigate('/usuarios')
+          }
+        }}
+      />
     </AppShell>
   )
 }

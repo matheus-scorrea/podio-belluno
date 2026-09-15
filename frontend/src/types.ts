@@ -13,10 +13,16 @@ export type AuthUser = {
   perfil: Perfil
   perfil_label: string
   ativo: boolean
+  must_change_password: boolean
   departamento_id: number | null
   cargo_id: number | null
   departamento: { id: number; nome: string } | null
   cargo: { id: number; nome: string } | null
+}
+
+export type ConviteAcesso = {
+  senha_temporaria: string
+  mensagem: string
 }
 
 export type DashboardKpis = {
