@@ -8,6 +8,12 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Seed apenas para desenvolvimento local (`php artisan migrate --seed`).
+ * Não é executado no compose de produção.
+ *
+ * Senha padrão das contas abaixo: valor de $password neste arquivo.
+ */
 class DatabaseSeeder extends Seeder
 {
     public function run(): void

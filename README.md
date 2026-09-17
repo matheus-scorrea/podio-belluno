@@ -1,16 +1,56 @@
 # Pódio Belluno
 
-Sistema web (Laravel API + React/MUI) para cadastro de metas mensais, lançamento de progresso pelos líderes e dashboard dinâmico por perfil.
+Sistema interno da [Belluno Tecnologia](https://github.com/belluno-company) para acompanhar metas e indicadores: a Direção cadastra o que precisa ser entregue, os líderes lançam o progresso do próprio setor e cada pessoa vê um dashboard no perímetro que lhe cabe.
+
+> Produto em uso: [podio.belluno.com.br](https://podio.belluno.com.br)
+
+## O que o sistema faz
+
+- **Metas por competência** — cada indicador é um cadastro; alvo e realizado ficam no mês. A Direção replica o mês anterior para abrir a competência nova sem duplicar o cadastro.
+- **Dashboard por perfil** — visão global (Direção), só o próprio setor (líder) ou só as metas em que a pessoa se enquadra (colaborador).
+- **Lançamento de progresso** — líderes atualizam o realizado no perímetro do cargo de liderança do departamento.
+- **Comissão de vendedor** — um cadastro com vários gatilhos (% e prêmio); no mês entram receita recorrente e adesão, e vale a maior faixa atingida.
+- **Organização** — usuários, departamentos e cargos; inativar sem apagar histórico. Convite com senha temporária e troca no primeiro acesso.
+
+```mermaid
+flowchart LR
+  subgraph perfis [Quem usa]
+    D[Direção]
+    L[Líder]
+    C[Colaborador]
+  end
+  subgraph app [Pódio]
+    M[Cadastro de metas]
+    P[Lançamento de progresso]
+    Dash[Dashboard e KPIs]
+  end
+  D --> M
+  D --> Dash
+  L --> P
+  L --> Dash
+  C --> Dash
+```
 
 ## Stack
 
-- Backend: Laravel 13 (PHP 8.4) + Sanctum + PostgreSQL 16
-- Frontend: React 19 + Vite + MUI 9 + MUI X Charts
-- Auth: cookies de sessão (SPA), autorização nas Policies
+| Camada | Tecnologia |
+| --- | --- |
+| API | Laravel 13, PHP 8.4, Sanctum, PostgreSQL 16 |
+| App | React 19, Vite, MUI 9, MUI X Charts |
+| Auth | Cookies de sessão (SPA) + Policies no backend |
+| Dev / prod | Docker Compose |
 
-## Subir o ambiente
+## Perfis
 
-PHP não precisa estar instalado na máquina: o backend roda no Docker.
+| Perfil | O que vê e o que faz |
+| --- | --- |
+| **Direção** | CRUD de usuários, departamentos (com cargos do setor) e metas (stepper de 3 etapas). |
+| **Líder** | Cargo de liderança do departamento. Vê metas do próprio setor e as da empresa; lança progresso só nesse perímetro. |
+| **Colaborador** | Feed das metas em que se enquadra (individual, cargo, departamento ou global). |
+
+## Desenvolvimento local
+
+O backend sobe no Docker; PHP na máquina não é obrigatório.
 
 ```bash
 docker compose up -d --build
@@ -21,45 +61,14 @@ cd frontend && npm install && npm run dev
 - API: http://localhost:8000
 - App: http://localhost:5173
 
-## Contas de demonstração (senha: `password`)
-
-- Direção: `direcao@bellunotec.com`
-- Líder de TI: `joao.silva@bellunotec.com`
-- Colaborador de TI: `ana.costa@bellunotec.com`
-- Coordenador de CS (Sucesso do Cliente): `joao.cs@bellunotec.com`
-- Executivo de CS: `everson@bellunotec.com`
-- Líder Comercial e MKT: `carla.mendes@bellunotec.com`
-- Líder de RH e Call Center: `fernanda.lima@bellunotec.com`
-
-Metas de **janeiro a setembro/2026** importadas da planilha *2026 OKR Banco Bônus*. Cada indicador é um cadastro único; o alvo e o realizado ficam na competência (mês). A Direção pode **replicar o mês anterior** para abrir a competência nova sem duplicar o cadastro.
-
-## Testes da API
+O seed local cria usuários de demonstração (Direção, líderes e colaboradores). E-mails e senha estão em `backend/database/seeders/DatabaseSeeder.php` — só para desenvolvimento, não use isso em produção.
 
 ```bash
 docker compose exec backend php artisan test
 ```
 
-## Produção (EC2)
+## Produção
 
-Domínio: `https://podio.belluno.com.br`
+Stack em `docker-compose.prod.yml`. Copie `.env.production.example` para `.env`, gere `APP_KEY` e credenciais fortes de banco, depois suba o compose. O seed de demonstração **não** roda em produção: o primeiro usuário da Direção é criado no servidor.
 
-1. DNS: registro **A** `podio` → IP público da EC2.
-2. Security group: **80** e **443** abertos para o mundo; **22** só no seu IP.
-3. Na EC2, clone o repositório, copie `.env.production.example` para `.env`, gere `APP_KEY` e uma senha forte de banco.
-4. `docker compose -f docker-compose.prod.yml up -d --build`
-5. Seed de demonstração **não** roda em produção. Crie o primeiro usuário da Direção no servidor.
-
-Atualizar:
-
-```bash
-git pull
-docker compose -f docker-compose.prod.yml up -d --build
-docker compose -f docker-compose.prod.yml exec php php artisan migrate --force
-```
-
-## Perfis
-
-- **Direção:** CRUD de usuários, departamentos (com cargos do setor) e metas (stepper de 3 etapas). Cargos e departamentos podem ser inativados sem apagar o histórico.
-- **Líder:** identificado quando `cargo_id` = `departamento.cargo_lider_id`. Vê todas as metas do próprio setor (e as da empresa) e lança progresso só desse perímetro. Não vê metas de outros setores.
-- **Colaborador:** feed apenas das metas em que se enquadra (individual, cargo, departamento ou global).
-- **Comissão de vendedor:** um cadastro com vários gatilhos (% e prêmio). No mês entram só receita recorrente e adesão; o sistema escolhe a maior faixa atingida.
+Uso interno da Belluno Tecnologia. Sem licença open source.
