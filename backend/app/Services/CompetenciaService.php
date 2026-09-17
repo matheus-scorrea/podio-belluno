@@ -8,11 +8,19 @@ use Carbon\Carbon;
 
 class CompetenciaService
 {
-    public function upsert(Meta $meta, int $ano, int $mes, float $valorMeta): MetaCompetencia
+    /**
+     * @param  list<array<string, mixed>>|null  $niveisComissao
+     */
+    public function upsert(Meta $meta, int $ano, int $mes, float $valorMeta, ?array $niveisComissao = null): MetaCompetencia
     {
+        $valores = ['valor_meta' => $valorMeta];
+        if ($meta->isComissao()) {
+            $valores['niveis_comissao'] = $niveisComissao ?? $meta->niveis_comissao;
+        }
+
         return MetaCompetencia::query()->updateOrCreate(
             ['meta_id' => $meta->id, 'ano' => $ano, 'mes' => $mes],
-            ['valor_meta' => $valorMeta],
+            $valores,
         );
     }
 
@@ -42,7 +50,11 @@ class CompetenciaService
             $realizadoInicial = $comp->meta?->isMarco() ? (float) $comp->valor_realizado : 0;
             $nova = MetaCompetencia::query()->firstOrCreate(
                 ['meta_id' => $comp->meta_id, 'ano' => $ano, 'mes' => $mes],
-                ['valor_meta' => $comp->valor_meta, 'valor_realizado' => $realizadoInicial],
+                [
+                    'valor_meta' => $comp->valor_meta,
+                    'valor_realizado' => $realizadoInicial,
+                    'niveis_comissao' => $comp->niveis_comissao ?? $comp->meta?->niveis_comissao,
+                ],
             );
             if ($nova->wasRecentlyCreated) {
                 $criadas++;
@@ -62,6 +74,9 @@ class CompetenciaService
         $meta->setAttribute('mes', $mes);
         $meta->setAttribute('valor_meta', (float) ($comp?->valor_meta ?? 0));
         $meta->setAttribute('valor_realizado', (float) ($comp?->valor_realizado ?? 0));
+        if ($meta->isComissao() && $comp?->niveis_comissao) {
+            $meta->setAttribute('niveis_comissao', $comp->niveis_comissao);
+        }
 
         return $meta;
     }

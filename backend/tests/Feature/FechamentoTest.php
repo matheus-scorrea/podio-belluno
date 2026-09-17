@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Meta;
 use App\Models\User;
+use App\Services\ComissaoService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -186,6 +187,129 @@ class FechamentoTest extends TestCase
 
         $this->assertCount(1, $ti);
         $this->assertSame($org['colaborador']->id, $ti[0]['id']);
+    }
+
+    public function test_comissao_paga_faixa_atingida_nao_o_bonus_fixo_do_cadastro(): void
+    {
+        $org = $this->createOrg();
+        $meta = $this->metaComissao($org);
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 15000,
+            'valor_adesao' => 7500,
+            'data_evento' => '2026-09-09',
+            'usuario_alvo_id' => $org['colaborador']->id,
+        ])->assertCreated();
+
+        $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')
+            ->assertOk()
+            ->assertJsonPath('pessoas', 1)
+            ->assertJsonPath('metas_batidas', 1)
+            ->assertJsonPath('total_bonus', 1250)
+            ->assertJsonPath('usuarios.0.id', $org['colaborador']->id)
+            ->assertJsonPath('usuarios.0.itens.0.valor_bonus', 1250)
+            ->assertJsonPath('usuarios.0.itens.0.nivel', 'META 1');
+    }
+
+    public function test_comissao_acompanha_aumento_dos_gatilhos_no_mesmo_mes(): void
+    {
+        $org = $this->createOrg();
+        $meta = $this->metaComissao($org);
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 15000,
+            'valor_adesao' => 7500,
+            'data_evento' => '2026-09-09',
+            'usuario_alvo_id' => $org['colaborador']->id,
+        ])->assertCreated();
+
+        $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')
+            ->assertJsonPath('total_bonus', 1250);
+
+        $niveis = ComissaoService::tabelaBelluno();
+        $niveis[0]['premio'] = 2000;
+
+        $this->actingAs($org['direcao'])->putJson("/api/metas/{$meta->id}", $this->payloadComissao($org, $meta, [
+            'niveis_comissao' => $niveis,
+        ]))->assertOk();
+
+        $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')
+            ->assertOk()
+            ->assertJsonPath('pessoas', 1)
+            ->assertJsonPath('total_bonus', 2750)
+            ->assertJsonPath('usuarios.0.itens.0.valor_bonus', 2750);
+    }
+
+    public function test_comissao_so_paga_quem_atingiu_faixa(): void
+    {
+        $org = $this->createOrg();
+        $colega = User::factory()->create([
+            'departamento_id' => $org['dept']->id,
+            'cargo_id' => $org['comumCargo']->id,
+        ]);
+        $meta = $this->metaComissao($org, [$org['colaborador']->id, $colega->id]);
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 15000,
+            'valor_adesao' => 7500,
+            'data_evento' => '2026-09-09',
+            'usuario_alvo_id' => $org['colaborador']->id,
+        ])->assertCreated();
+
+        $ids = collect($this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')->json('usuarios'))
+            ->pluck('id');
+
+        $this->assertTrue($ids->contains($org['colaborador']->id));
+        $this->assertFalse($ids->contains($colega->id));
+    }
+
+    /**
+     * @param  array<string, mixed>  $org
+     * @param  list<int>|null  $usuarioIds
+     */
+    private function metaComissao(array $org, ?array $usuarioIds = null): Meta
+    {
+        $ids = $usuarioIds ?? [$org['colaborador']->id];
+        $meta = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'individual',
+            'chart_tipo' => 'comissao',
+            'unidade' => 'R$',
+            'agregacao' => 'soma',
+            'valor_bonus' => 0,
+            'niveis_comissao' => ComissaoService::tabelaBelluno(),
+        ]);
+        $meta->usuarios()->sync($ids);
+        $meta->competencias()->update([
+            'valor_meta' => 25000,
+            'niveis_comissao' => ComissaoService::tabelaBelluno(),
+        ]);
+
+        return $meta;
+    }
+
+    /**
+     * @param  array<string, mixed>  $org
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function payloadComissao(array $org, Meta $meta, array $overrides = []): array
+    {
+        return array_merge([
+            'titulo' => $meta->titulo,
+            'descricao' => $meta->descricao,
+            'ano' => 2026,
+            'mes' => 9,
+            'tipo_escopo' => 'individual',
+            'valor_meta' => 25000,
+            'valor_bonus' => 0,
+            'unidade' => 'R$',
+            'sentido' => 'maior_melhor',
+            'chart_tipo' => 'comissao',
+            'chart_cor' => $meta->chart_cor,
+            'usuario_ids' => $meta->usuarios()->pluck('users.id')->all() ?: [$org['colaborador']->id],
+            'niveis_comissao' => ComissaoService::tabelaBelluno(),
+        ], $overrides);
     }
 
     /**

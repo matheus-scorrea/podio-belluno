@@ -7,7 +7,6 @@ use App\Models\MetaCompetencia;
 use App\Models\MetaLancamento;
 use App\Models\User;
 use Carbon\Carbon;
-
 use Illuminate\Support\Facades\DB;
 
 class ProgressoService
@@ -50,7 +49,11 @@ class ProgressoService
     {
         $competencia = MetaCompetencia::query()->firstOrCreate(
             ['meta_id' => $meta->id, 'ano' => $ano, 'mes' => $mes],
-            ['valor_meta' => $this->ultimoAlvo($meta) ?? 0, 'valor_realizado' => 0],
+            [
+                'valor_meta' => $this->ultimoAlvo($meta) ?? 0,
+                'valor_realizado' => 0,
+                'niveis_comissao' => $meta->niveis_comissao,
+            ],
         );
 
         $lancamentos = $meta->lancamentos()
@@ -59,7 +62,7 @@ class ProgressoService
 
         if ($meta->isComissao()) {
             $comissao = app(ComissaoService::class);
-            $niveis = $comissao->niveisValidos($meta->niveis_comissao ?? []);
+            $niveis = $comissao->niveisValidos($competencia->niveis_comissao ?? $meta->niveis_comissao ?? []);
             $competencia->valor_realizado = $this->ultimosPorGrao($meta, $ano, $mes)->sum(
                 fn (MetaLancamento $l) => $comissao->calcular(
                     $niveis,

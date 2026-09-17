@@ -7,11 +7,15 @@ use App\Http\Requests\StoreMetaRequest;
 use App\Models\Meta;
 use App\Services\ComissaoService;
 use App\Services\CompetenciaService;
+use App\Services\ProgressoService;
 use Illuminate\Http\Request;
 
 class MetaController extends Controller
 {
-    public function __construct(private CompetenciaService $competencias) {}
+    public function __construct(
+        private CompetenciaService $competencias,
+        private ProgressoService $progresso,
+    ) {}
 
     public function index(Request $request)
     {
@@ -70,7 +74,13 @@ class MetaController extends Controller
 
         $meta = Meta::query()->create(collect($data)->except(['ano', 'mes', 'valor_meta', 'usuario_ids', 'cargo_ids', 'departamento_ids'])->all());
         $this->syncEscopo($meta, $data);
-        $this->competencias->upsert($meta, (int) $data['ano'], (int) $data['mes'], (float) $data['valor_meta']);
+        $this->competencias->upsert(
+            $meta,
+            (int) $data['ano'],
+            (int) $data['mes'],
+            (float) $data['valor_meta'],
+            $data['niveis_comissao'] ?? null,
+        );
 
         return response()->json($this->detalhar($meta, (int) $data['ano'], (int) $data['mes']), 201);
     }
@@ -90,7 +100,17 @@ class MetaController extends Controller
         $data = $this->normalizarIndicador($data);
         $meta->update(collect($data)->except(['ano', 'mes', 'valor_meta', 'usuario_ids', 'cargo_ids', 'departamento_ids'])->all());
         $this->syncEscopo($meta, $data);
-        $this->competencias->upsert($meta, (int) $data['ano'], (int) $data['mes'], (float) $data['valor_meta']);
+        $this->competencias->upsert(
+            $meta,
+            (int) $data['ano'],
+            (int) $data['mes'],
+            (float) $data['valor_meta'],
+            $data['niveis_comissao'] ?? null,
+        );
+
+        if ($meta->isComissao()) {
+            $this->progresso->refreshAgregado($meta->fresh(), (int) $data['ano'], (int) $data['mes']);
+        }
 
         return $this->detalhar($meta->fresh(), (int) $data['ano'], (int) $data['mes']);
     }

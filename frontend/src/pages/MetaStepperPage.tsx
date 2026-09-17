@@ -164,6 +164,7 @@ export function MetaStepperPage() {
         queryClient.invalidateQueries({ queryKey: ['metas'] }),
         queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
         queryClient.invalidateQueries({ queryKey: ['meta'] }),
+        queryClient.invalidateQueries({ queryKey: ['fechamento'] }),
       ])
       navigate('/metas')
     },
