@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreLancamentoRequest;
 use App\Models\Meta;
 use App\Models\MetaCompetencia;
+use App\Models\MetaLancamento;
 use App\Services\AcessoMetas;
 use App\Services\CompetenciaService;
 use App\Services\ProgressoService;
@@ -35,6 +36,24 @@ class LancamentoController extends Controller
             ->values()
             ->map(function (Meta $meta) use ($ano, $mes, $user) {
                 $this->competencias->hidratar($meta, $ano, $mes);
+                $graos = $this->acesso->graosLancaveis($user, $meta);
+                if ($meta->isPorGrao()) {
+                    $ultimos = $this->progresso->ultimosPorGrao($meta, $ano, $mes);
+                    $graos = $graos->map(function (array $grao) use ($ultimos) {
+                        $ultimo = $ultimos->first(function (MetaLancamento $l) use ($grao) {
+                            if (($grao['usuario_alvo_id'] ?? null) !== null) {
+                                return (int) $l->usuario_alvo_id === (int) $grao['usuario_alvo_id'];
+                            }
+
+                            return (int) $l->departamento_id === (int) ($grao['departamento_id'] ?? 0)
+                                && (int) $l->cargo_id === (int) ($grao['cargo_id'] ?? 0)
+                                && (int) $l->usuario_alvo_id === (int) ($grao['usuario_alvo_id'] ?? 0);
+                        });
+                        $grao['valor_realizado'] = (float) ($ultimo?->valor_realizado ?? 0);
+
+                        return $grao;
+                    })->values();
+                }
 
                 return [
                     'id' => $meta->id,
@@ -47,7 +66,7 @@ class LancamentoController extends Controller
                     'por_grao' => $meta->isPorGrao(),
                     'chart_tipo' => $meta->chart_tipo,
                     'tipo_escopo' => $meta->tipo_escopo,
-                    'graos' => $this->acesso->graosLancaveis($user, $meta),
+                    'graos' => $graos,
                 ];
             });
 

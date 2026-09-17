@@ -34,7 +34,7 @@ class AcessoMetas
         $meta->loadMissing(['departamentos', 'cargos', 'usuarios']);
 
         if ($user->isLider()) {
-            if ($meta->isComissao()) {
+            if ($meta->isComissao() || $meta->isMarcoPorPessoa()) {
                 return $this->graosDaMeta($meta)->contains(
                     fn (array $g) => (int) ($g['departamento_id'] ?? 0) === (int) $user->departamento_id
                 );
@@ -124,7 +124,7 @@ class AcessoMetas
 
     private function liderPodeLancar(User $user, Meta $meta, array $alvo = []): bool
     {
-        if ($meta->isComissao()) {
+        if ($meta->isComissao() || $meta->isMarcoPorPessoa()) {
             return $this->usuarioAlvoComissaoNoPerimetro($user, $meta, $alvo);
         }
 
@@ -141,7 +141,7 @@ class AcessoMetas
 
     private function colaboradorPodeLancar(User $user, Meta $meta, array $alvo = []): bool
     {
-        if ($meta->isComissao()) {
+        if ($meta->isComissao() || $meta->isMarcoPorPessoa()) {
             if (! $this->usuarioNoEscopoComissao($user, $meta)) {
                 return false;
             }
@@ -170,8 +170,8 @@ class AcessoMetas
 
     private function todosGraos(Meta $meta): Collection
     {
-        if ($meta->isComissao()) {
-            return $this->vendedoresDaMeta($meta)->map(fn (User $u) => [
+        if ($meta->isComissao() || $meta->isMarcoPorPessoa()) {
+            return $this->pessoasDoEscopo($meta)->map(fn (User $u) => [
                 'label' => $u->name,
                 'departamento_id' => $u->departamento_id,
                 'cargo_id' => $u->cargo_id,
@@ -221,32 +221,45 @@ class AcessoMetas
     /**
      * @return Collection<int, User>
      */
+    public function pessoasDoEscopo(Meta $meta): Collection
+    {
+        $meta->loadMissing(['usuarios', 'cargos', 'departamentos']);
+
+        $ativos = User::query()->where('ativo', true)->where('is_direcao', false);
+
+        return match ($meta->tipo_escopo) {
+            'individual' => $meta->usuarios
+                ->where('is_direcao', false)
+                ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+                ->values(),
+            'cargo' => $ativos->whereIn('cargo_id', $meta->cargos->pluck('id'))->orderBy('name')->get(),
+            'departamento' => $ativos->whereIn('departamento_id', $meta->departamentos->pluck('id'))->orderBy('name')->get(),
+            'global' => $ativos->orderBy('name')->get(),
+            default => collect(),
+        };
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
     private function vendedoresDaMeta(Meta $meta): Collection
     {
-        $meta->loadMissing(['usuarios', 'cargos']);
-
-        if ($meta->tipo_escopo === 'individual') {
-            return $meta->usuarios->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
-        }
-
-        if ($meta->tipo_escopo === 'cargo') {
-            return User::query()
-                ->where('ativo', true)
-                ->whereIn('cargo_id', $meta->cargos->pluck('id'))
-                ->orderBy('name')
-                ->get();
-        }
-
-        return collect();
+        return $this->pessoasDoEscopo($meta);
     }
 
     private function usuarioNoEscopoComissao(User $alvo, Meta $meta): bool
     {
-        $meta->loadMissing(['usuarios', 'cargos']);
+        if ($alvo->is_direcao) {
+            return false;
+        }
+
+        $meta->loadMissing(['usuarios', 'cargos', 'departamentos']);
 
         return match ($meta->tipo_escopo) {
             'individual' => $meta->usuarios->contains('id', $alvo->id),
             'cargo' => $meta->cargos->contains('id', $alvo->cargo_id),
+            'departamento' => $meta->departamentos->contains('id', $alvo->departamento_id),
+            'global' => true,
             default => false,
         };
     }

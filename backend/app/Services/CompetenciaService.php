@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Meta;
 use App\Models\MetaCompetencia;
+use App\Models\MetaLancamento;
 use Carbon\Carbon;
 
 class CompetenciaService
@@ -58,6 +59,10 @@ class CompetenciaService
             );
             if ($nova->wasRecentlyCreated) {
                 $criadas++;
+                if ($comp->meta?->isMarcoPorPessoa()) {
+                    $this->replicarMarcosPorPessoa($comp->meta, $origemAno, $origemMes, $ano, $mes);
+                    app(ProgressoService::class)->refreshAgregado($comp->meta, $ano, $mes);
+                }
             }
         }
 
@@ -84,5 +89,25 @@ class CompetenciaService
     public function dataNoPeriodo(Carbon $evento, int $ano, int $mes): bool
     {
         return $evento->year === $ano && $evento->month === $mes;
+    }
+
+    private function replicarMarcosPorPessoa(Meta $meta, int $origemAno, int $origemMes, int $ano, int $mes): void
+    {
+        $progresso = app(ProgressoService::class);
+        $origem = $progresso->ultimosPorGrao($meta, $origemAno, $origemMes);
+        $data = sprintf('%04d-%02d-01', $ano, $mes);
+
+        foreach ($origem as $lancamento) {
+            MetaLancamento::query()->create([
+                'meta_id' => $meta->id,
+                'data_evento' => $data,
+                'valor_realizado' => (float) $lancamento->valor_realizado >= 1 ? 1 : 0,
+                'observacao' => $lancamento->observacao,
+                'departamento_id' => $lancamento->departamento_id,
+                'cargo_id' => $lancamento->cargo_id,
+                'usuario_alvo_id' => $lancamento->usuario_alvo_id,
+                'lancado_por' => $lancamento->lancado_por,
+            ]);
+        }
     }
 }

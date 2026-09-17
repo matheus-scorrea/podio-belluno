@@ -108,7 +108,7 @@ class MetaController extends Controller
             $data['niveis_comissao'] ?? null,
         );
 
-        if ($meta->isComissao()) {
+        if ($meta->isComissao() || $meta->isMarcoPorPessoa()) {
             $this->progresso->refreshAgregado($meta->fresh(), (int) $data['ano'], (int) $data['mes']);
         }
 
@@ -156,14 +156,19 @@ class MetaController extends Controller
             $data['agregacao'] = 'ultimo';
             $data['valor_meta'] = 1;
             $data['niveis_comissao'] = null;
+            $varios = ($data['tipo_escopo'] ?? '') !== 'individual'
+                || count($data['usuario_ids'] ?? []) > 1;
+            $data['marco_por_pessoa'] = $varios && (bool) ($data['marco_por_pessoa'] ?? false);
         } elseif (($data['chart_tipo'] ?? '') === 'comissao') {
             $data['unidade'] = 'R$';
             $data['sentido'] = 'maior_melhor';
             $data['agregacao'] = 'soma';
             $data['valor_meta'] = app(ComissaoService::class)->maiorVendaMin($data['niveis_comissao'] ?? []);
+            $data['marco_por_pessoa'] = false;
         } else {
             $data['agregacao'] = ($data['unidade'] ?? '') === '%' ? 'media' : 'soma';
             $data['niveis_comissao'] = null;
+            $data['marco_por_pessoa'] = false;
         }
 
         return $data;

@@ -426,7 +426,8 @@ class MetaRbacTest extends TestCase
             'departamento_ids' => [$org['dept']->id],
         ])->assertCreated()
             ->assertJsonPath('chart_tipo', 'marco')
-            ->assertJsonPath('unidade', 'marco');
+            ->assertJsonPath('unidade', 'marco')
+            ->assertJsonPath('marco_por_pessoa', false);
 
         $meta = Meta::query()->where('titulo', 'Implantar IAnalista')->firstOrFail();
         $this->actingAs($org['lider'])->postJson("/api/metas/{$meta->id}/lancamentos", [
@@ -450,6 +451,115 @@ class MetaRbacTest extends TestCase
         $outubro = collect($this->actingAs($org['direcao'])->getJson('/api/dashboard?ano=2026&mes=10')->json('metas'))
             ->firstWhere('titulo', 'Implantar IAnalista');
         $this->assertSame('concluida', $outubro['status']);
+    }
+
+    public function test_marco_por_pessoa_isola_lancamento_e_nao_deixa_colega_disparar(): void
+    {
+        $org = $this->createOrg();
+        $colega = User::factory()->create([
+            'name' => 'Bruno',
+            'departamento_id' => $org['dept']->id,
+            'cargo_id' => $org['comumCargo']->id,
+        ]);
+
+        $this->actingAs($org['direcao'])->postJson('/api/metas', [
+            'titulo' => 'Certificação',
+            'ano' => 2026,
+            'mes' => 9,
+            'tipo_escopo' => 'individual',
+            'valor_meta' => 1,
+            'valor_bonus' => 80,
+            'unidade' => 'marco',
+            'sentido' => 'maior_melhor',
+            'chart_tipo' => 'marco',
+            'chart_cor' => '#00A8E8',
+            'usuario_ids' => [$org['colaborador']->id, $colega->id],
+            'marco_por_pessoa' => true,
+        ])->assertCreated()
+            ->assertJsonPath('marco_por_pessoa', true);
+
+        $meta = Meta::query()->where('titulo', 'Certificação')->firstOrFail();
+        $this->assertTrue($meta->isMarcoPorPessoa());
+        $this->assertTrue($meta->isPorGrao());
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 1,
+            'data_evento' => '2026-09-09',
+        ])->assertUnprocessable();
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 1,
+            'data_evento' => '2026-09-09',
+            'usuario_alvo_id' => $colega->id,
+        ])->assertForbidden();
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 1,
+            'data_evento' => '2026-09-09',
+            'usuario_alvo_id' => $org['colaborador']->id,
+        ])->assertCreated();
+
+        $dash = $this->actingAs($org['direcao'])->getJson('/api/dashboard?ano=2026&mes=9');
+        $item = collect($dash->json('metas'))->firstWhere('titulo', 'Certificação');
+        $this->assertNotNull($item);
+        $this->assertSame(50, (int) $item['percentual']);
+        $this->assertSame('abaixo', $item['status']);
+        $pessoas = collect($item['marco']['pessoas']);
+        $anaDash = $pessoas->firstWhere('usuario_id', $org['colaborador']->id);
+        $brunoDash = $pessoas->firstWhere('usuario_id', $colega->id);
+        $this->assertNotNull($anaDash);
+        $this->assertNotNull($brunoDash);
+        $this->assertTrue($anaDash['feito']);
+        $this->assertFalse($brunoDash['feito']);
+
+        $ana = collect($this->actingAs($org['colaborador'])->getJson('/api/dashboard?ano=2026&mes=9')->json('metas'))
+            ->firstWhere('titulo', 'Certificação');
+        $this->assertCount(1, $ana['marco']['pessoas']);
+        $this->assertSame($org['colaborador']->id, $ana['marco']['pessoas'][0]['usuario_id']);
+        $this->assertTrue($ana['marco']['pessoas'][0]['feito']);
+
+        $lancaveis = collect($this->actingAs($org['colaborador'])->getJson('/api/metas/lancaveis?ano=2026&mes=9')->json('data'))
+            ->firstWhere('titulo', 'Certificação');
+        $this->assertTrue($lancaveis['por_grao']);
+        $this->assertCount(1, $lancaveis['graos']);
+        $this->assertSame($org['colaborador']->id, $lancaveis['graos'][0]['usuario_alvo_id']);
+        $this->assertEquals(1, $lancaveis['graos'][0]['valor_realizado']);
+
+        $this->actingAs($org['direcao'])->postJson('/api/metas/abrir-competencia', [
+            'ano' => 2026,
+            'mes' => 10,
+        ])->assertOk()->assertJson(['criadas' => 1]);
+
+        $outubro = collect($this->actingAs($org['direcao'])->getJson('/api/dashboard?ano=2026&mes=10')->json('metas'))
+            ->firstWhere('titulo', 'Certificação');
+        $outubroPessoas = collect($outubro['marco']['pessoas']);
+        $anaOut = $outubroPessoas->firstWhere('usuario_id', $org['colaborador']->id);
+        $brunoOut = $outubroPessoas->firstWhere('usuario_id', $colega->id);
+        $this->assertNotNull($anaOut);
+        $this->assertNotNull($brunoOut);
+        $this->assertTrue($anaOut['feito']);
+        $this->assertFalse($brunoOut['feito']);
+        $this->assertSame(50, (int) $outubro['percentual']);
+    }
+
+    public function test_marco_por_pessoa_some_quando_o_escopo_e_uma_pessoa_so(): void
+    {
+        $org = $this->createOrg();
+
+        $this->actingAs($org['direcao'])->postJson('/api/metas', [
+            'titulo' => 'Marco só da Ana',
+            'ano' => 2026,
+            'mes' => 9,
+            'tipo_escopo' => 'individual',
+            'valor_meta' => 1,
+            'unidade' => 'marco',
+            'sentido' => 'maior_melhor',
+            'chart_tipo' => 'marco',
+            'chart_cor' => '#00A8E8',
+            'usuario_ids' => [$org['colaborador']->id],
+            'marco_por_pessoa' => true,
+        ])->assertCreated()
+            ->assertJsonPath('marco_por_pessoa', false);
     }
 
     public function test_converte_entregas_do_banco_para_marco(): void

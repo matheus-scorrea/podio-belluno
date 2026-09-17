@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'chart_cor',
     'valor_bonus',
     'niveis_comissao',
+    'marco_por_pessoa',
     'created_by',
     'ativo',
 ])]
@@ -40,6 +41,7 @@ class Meta extends Model
             'ativo' => 'boolean',
             'valor_bonus' => 'decimal:2',
             'niveis_comissao' => 'array',
+            'marco_por_pessoa' => 'boolean',
         ];
     }
 
@@ -88,9 +90,14 @@ class Meta extends Model
         return $this->chart_tipo === 'comissao';
     }
 
+    public function isMarcoPorPessoa(): bool
+    {
+        return $this->isMarco() && $this->marco_por_pessoa;
+    }
+
     public function isPorGrao(): bool
     {
-        return $this->isComparativa() || $this->isComissao();
+        return $this->isComparativa() || $this->isComissao() || $this->isMarcoPorPessoa();
     }
 
     public function enquadra(User $user): bool

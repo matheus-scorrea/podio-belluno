@@ -130,6 +130,10 @@ class DashboardService
             $payload['valor_realizado'] = collect($payload['comissao']['vendedores'])->sum('total');
         }
 
+        if ($meta->isMarcoPorPessoa()) {
+            $payload['marco'] = $this->serializarMarco($user, $meta, $ano, $mes);
+        }
+
         return $payload;
     }
 
@@ -319,6 +323,37 @@ class DashboardService
             ->all();
 
         return $meta;
+    }
+
+    /**
+     * @return array{pessoas: list<array{usuario_id: int|null, nome: string, feito: bool}>}
+     */
+    private function serializarMarco(User $user, Meta $meta, int $ano, int $mes): array
+    {
+        $ultimos = $this->progresso->ultimosPorGrao($meta, $ano, $mes);
+        $graos = $user->is_direcao
+            ? $this->acesso->graosDaMeta($meta)
+            : $this->acesso->graosLancaveis($user, $meta);
+
+        if ($user->perfil() === 'colaborador') {
+            $graos = $graos->filter(fn (array $g) => (int) ($g['usuario_alvo_id'] ?? 0) === (int) $user->id)->values();
+        } elseif ($user->isLider() && ! $user->is_direcao) {
+            $graos = $graos->filter(fn (array $g) => (int) ($g['departamento_id'] ?? 0) === (int) $user->departamento_id)->values();
+        }
+
+        $pessoas = $graos->map(function (array $grao) use ($ultimos) {
+            $ultimo = $ultimos->first(
+                fn (MetaLancamento $l) => (int) $l->usuario_alvo_id === (int) ($grao['usuario_alvo_id'] ?? 0)
+            );
+
+            return [
+                'usuario_id' => $grao['usuario_alvo_id'] ?? null,
+                'nome' => $grao['label'],
+                'feito' => (float) ($ultimo?->valor_realizado ?? 0) >= 1,
+            ];
+        })->values()->all();
+
+        return ['pessoas' => $pessoas];
     }
 
     /**

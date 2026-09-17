@@ -70,6 +70,19 @@ class ProgressoService
                     (float) ($l->valor_adesao ?? 0),
                 )['total']
             );
+        } elseif ($meta->isMarcoPorPessoa()) {
+            $graos = $this->acesso->graosDaMeta($meta);
+            $ultimos = $this->ultimosPorGrao($meta, $ano, $mes);
+            $feitos = $graos->filter(function (array $grao) use ($ultimos) {
+                $ultimo = $ultimos->first(
+                    fn (MetaLancamento $l) => (int) $l->usuario_alvo_id === (int) ($grao['usuario_alvo_id'] ?? 0)
+                );
+
+                return (float) ($ultimo?->valor_realizado ?? 0) >= 1;
+            })->count();
+            $total = max($graos->count(), 1);
+            $competencia->valor_realizado = round($feitos / $total, 4);
+            $competencia->valor_meta = 1;
         } elseif ($meta->isComparativa()) {
             $valores = $this->ultimosPorGrao($meta, $ano, $mes)->pluck('valor_realizado');
             $competencia->valor_realizado = $valores->isEmpty()
@@ -122,15 +135,20 @@ class ProgressoService
             'usuario_alvo_id' => $dados['usuario_alvo_id'] ?? null,
         ];
 
-        if ($meta->isComissao()) {
+        if ($meta->isComissao() || $meta->isMarcoPorPessoa()) {
             if (! $user->is_direcao && ! $user->isLider()) {
                 $pedido = (int) ($alvo['usuario_alvo_id'] ?? $user->id);
                 if ($pedido !== 0 && $pedido !== (int) $user->id) {
                     abort(403);
                 }
                 $alvo['usuario_alvo_id'] = $user->id;
-                $alvo['departamento_id'] = $user->departamento_id;
-                $alvo['cargo_id'] = $user->cargo_id;
+            }
+
+            $alvoUser = User::find($alvo['usuario_alvo_id'] ?? 0);
+            if ($alvoUser) {
+                $alvo['usuario_alvo_id'] = $alvoUser->id;
+                $alvo['departamento_id'] = $alvoUser->departamento_id;
+                $alvo['cargo_id'] = $alvoUser->cargo_id;
             }
 
             return $alvo;

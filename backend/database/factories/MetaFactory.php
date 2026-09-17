@@ -23,6 +23,7 @@ class MetaFactory extends Factory
             'chart_tipo' => 'gauge',
             'chart_cor' => '#00A8E8',
             'valor_bonus' => 0,
+            'marco_por_pessoa' => false,
             'created_by' => User::factory()->direcao(),
             'ativo' => true,
         ];

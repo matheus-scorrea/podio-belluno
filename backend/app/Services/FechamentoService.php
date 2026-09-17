@@ -46,6 +46,14 @@ class FechamentoService
                 continue;
             }
 
+            if ($meta->isMarcoPorPessoa()) {
+                if ($this->acumularMarcoPorPessoa($meta, $ativos, $porUsuario, $ano, $mes)) {
+                    $metasBatidas++;
+                }
+
+                continue;
+            }
+
             $series = $meta->isComparativa() ? $this->series($meta, $ano, $mes) : collect();
             $bonus = round((float) $meta->valor_bonus, 2);
             $pagouAlguem = false;
@@ -134,6 +142,39 @@ class FechamentoService
                 'percentual' => 100.0,
                 'valor_bonus' => round((float) $calc['total'], 2),
                 'nivel' => $calc['nivel'],
+            ];
+        }
+
+        return $pagouAlguem;
+    }
+
+    /**
+     * @param  Collection<int, User>  $ativos
+     * @param  array<int, array{usuario: User, itens: list<array<string, mixed>>}>  $porUsuario
+     */
+    private function acumularMarcoPorPessoa(Meta $meta, Collection $ativos, array &$porUsuario, int $ano, int $mes): bool
+    {
+        $ultimos = $this->progresso->ultimosPorGrao($meta, $ano, $mes);
+        $bonus = round((float) $meta->valor_bonus, 2);
+        $pagouAlguem = false;
+
+        foreach ($this->beneficiarios($meta, $ativos) as $user) {
+            $lancamento = $ultimos->first(
+                fn (MetaLancamento $l) => (int) $l->usuario_alvo_id === (int) $user->id
+            );
+
+            if ((float) ($lancamento?->valor_realizado ?? 0) < 1) {
+                continue;
+            }
+
+            $pagouAlguem = true;
+            $porUsuario[$user->id] ??= ['usuario' => $user, 'itens' => []];
+            $porUsuario[$user->id]['itens'][] = [
+                'meta_id' => $meta->id,
+                'titulo' => $meta->titulo,
+                'tipo_escopo' => $meta->tipo_escopo,
+                'percentual' => 100.0,
+                'valor_bonus' => $bonus,
             ];
         }
 

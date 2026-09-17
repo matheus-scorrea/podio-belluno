@@ -20,7 +20,7 @@ export function renderMetaChart(meta: DashboardMeta) {
   return <Cmp meta={meta} />
 }
 
-export function previewMeta(tipo: ChartTipo, cor: string): DashboardMeta {
+export function previewMeta(tipo: ChartTipo, cor: string, extras?: { marcoPorPessoa?: boolean }): DashboardMeta {
   const marco = tipo === 'marco'
   const comissao = tipo === 'comissao'
   return {
@@ -47,6 +47,14 @@ export function previewMeta(tipo: ChartTipo, cor: string): DashboardMeta {
       { label: 'TI', valor: 75, percentual: 75 },
       { label: 'ADM', valor: 50, percentual: 50 },
     ],
+    marco: extras?.marcoPorPessoa
+      ? {
+          pessoas: [
+            { usuario_id: 1, nome: 'Ana', feito: true },
+            { usuario_id: 2, nome: 'Bruno', feito: false },
+          ],
+        }
+      : undefined,
     comissao: {
       niveis: [],
       vendedores: [

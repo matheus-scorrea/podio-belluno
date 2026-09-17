@@ -76,6 +76,7 @@ export function MetaStepperPage() {
   const [chartTipo, setChartTipo] = useState<ChartTipo>('gauge')
   const [chartCor, setChartCor] = useState('#00A8E8')
   const [niveis, setNiveis] = useState<NivelComissao[]>(TABELA_BELLUNO)
+  const [marcoPorPessoa, setMarcoPorPessoa] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hydrated, setHydrated] = useState(!isEdit)
 
@@ -119,6 +120,7 @@ export function MetaStepperPage() {
     if (meta.niveis_comissao && meta.niveis_comissao.length > 0) {
       setNiveis(meta.niveis_comissao)
     }
+    setMarcoPorPessoa(Boolean(meta.marco_por_pessoa))
     setHydrated(true)
   }, [meta])
 
@@ -148,6 +150,7 @@ export function MetaStepperPage() {
       cargo_ids: cargosSel.map((c) => c.id),
       departamento_ids: deptsSel.map((d) => d.id),
       niveis_comissao: ehComissao ? niveis : undefined,
+      marco_por_pessoa: ehMarco && (tipoEscopo !== 'individual' || usuariosSel.length > 1) && marcoPorPessoa,
     }
   }
 
@@ -171,8 +174,10 @@ export function MetaStepperPage() {
     onError: () => setError('Não foi possível salvar a meta. Verifique os campos obrigatórios.'),
   })
 
-  const preview = previewMeta(chartTipo, chartCor)
   const ehComissao = chartTipo === 'comissao'
+  const escopoPodeVariasPessoas = tipoEscopo !== 'individual' || usuariosSel.length > 1
+  const mostrarMarcoPorPessoa = chartTipo === 'marco' && escopoPodeVariasPessoas
+  const preview = previewMeta(chartTipo, chartCor, { marcoPorPessoa: mostrarMarcoPorPessoa && marcoPorPessoa })
 
   if (user && !user.is_direcao) {
     return <Navigate to="/" replace />
@@ -251,7 +256,8 @@ export function MetaStepperPage() {
                 </FormControl>
                 {chartTipo === 'marco' && (
                   <Alert severity="info">
-                    Esta meta é concluída quando o líder disparar o marco como feito. Não há alvo numérico.
+                    Esta meta é concluída quando o marco é marcado como feito. Não há alvo numérico. No escopo, você
+                    escolhe se o feito vale para o grupo ou para cada pessoa.
                   </Alert>
                 )}
                 {ehComissao && (
@@ -441,6 +447,28 @@ export function MetaStepperPage() {
                     renderInput={(params) => <TextField {...params} label="Setores" />}
                   />
                 )}
+                {mostrarMarcoPorPessoa && (
+                  <FormControl>
+                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
+                      Como o marco é concluído
+                    </Typography>
+                    <RadioGroup
+                      value={marcoPorPessoa ? 'por_pessoa' : 'compartilhado'}
+                      onChange={(e) => setMarcoPorPessoa(e.target.value === 'por_pessoa')}
+                    >
+                      <FormControlLabel
+                        value="compartilhado"
+                        control={<Radio />}
+                        label="Um marco compartilhado: quem disparar marca para o grupo"
+                      />
+                      <FormControlLabel
+                        value="por_pessoa"
+                        control={<Radio />}
+                        label="Cada pessoa conclui o próprio marco"
+                      />
+                    </RadioGroup>
+                  </FormControl>
+                )}
               </Stack>
             )}
             {active === 2 && (
@@ -449,7 +477,11 @@ export function MetaStepperPage() {
                   Defina como o indicador aparece no painel.
                 </Typography>
                 {chartTipo === 'marco' ? (
-                  <Alert severity="info">O painel mostra só se o marco foi concluído ou ainda está pendente.</Alert>
+                  <Alert severity="info">
+                    {mostrarMarcoPorPessoa && marcoPorPessoa
+                      ? 'O painel lista feito ou pendente por pessoa. O marco só fica concluído quando todas concluírem.'
+                      : 'O painel mostra só se o marco foi concluído ou ainda está pendente.'}
+                  </Alert>
                 ) : ehComissao ? (
                   <Alert severity="info">
                     O painel mostra a faixa atingida, a comissão, o prêmio e o total da remuneração variável.

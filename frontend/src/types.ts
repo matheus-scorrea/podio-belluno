@@ -86,6 +86,9 @@ export type DashboardMeta = {
   historico?: { em: string; valor: number }[]
   series?: MetaSeries[]
   comissao?: ComissaoPainel
+  marco?: {
+    pessoas: { usuario_id: number | null; nome: string; feito: boolean }[]
+  }
   departamentos?: { id: number; nome: string }[]
   cargos?: { id: number; nome: string; departamento_id: number }[]
   usuarios?: { id: number; name: string; cargo: string | null; departamento_id: number | null }[]
@@ -134,6 +137,7 @@ export type MetaLancavel = {
     departamento_id: number | null
     cargo_id: number | null
     usuario_alvo_id: number | null
+    valor_realizado?: number
   }[]
 }
 
@@ -203,6 +207,7 @@ export type MetaDetail = {
   chart_tipo: ChartTipo
   chart_cor: string
   niveis_comissao?: NivelComissao[] | null
+  marco_por_pessoa?: boolean
   usuarios: AuthUser[]
   cargos: Cargo[]
   departamentos: Departamento[]
