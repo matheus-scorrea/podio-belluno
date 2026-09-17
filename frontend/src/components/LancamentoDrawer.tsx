@@ -62,15 +62,23 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
   }, [selected])
 
   useEffect(() => {
-    if (selected?.chart_tipo !== 'marco') {
+    if (!selected) {
       return
     }
-    if (selected.por_grao) {
+    if (selected.chart_tipo === 'marco') {
+      if (selected.por_grao) {
+        const grao = selected.graos.find((g) => `${g.departamento_id}-${g.cargo_id}-${g.usuario_alvo_id}` === graoKey)
+        setValor((grao?.valor_realizado ?? 0) >= 1 ? '1' : '0')
+        return
+      }
+      setValor(selected.valor_realizado && selected.valor_realizado > 0 ? '1' : '0')
+      return
+    }
+    if (selected.por_grao && selected.chart_tipo !== 'comissao') {
       const grao = selected.graos.find((g) => `${g.departamento_id}-${g.cargo_id}-${g.usuario_alvo_id}` === graoKey)
-      setValor((grao?.valor_realizado ?? 0) >= 1 ? '1' : '0')
-      return
+      const atual = grao?.valor_realizado
+      setValor(atual != null && atual !== 0 ? String(atual) : '')
     }
-    setValor(selected.valor_realizado && selected.valor_realizado > 0 ? '1' : '0')
   }, [selected, graoKey])
 
   const mutation = useMutation({
@@ -133,10 +141,20 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
         {(selected?.comparativa || selected?.por_grao || selected?.chart_tipo === 'comissao') && selected.graos.length > 0 && (
           <FormControl fullWidth>
             <InputLabel>
-              {selected.chart_tipo === 'comissao' ? 'Vendedor' : selected.chart_tipo === 'marco' ? 'Pessoa' : 'Alvo'}
+              {selected.chart_tipo === 'comissao'
+                ? 'Vendedor'
+                : selected.por_grao && selected.graos.some((g) => g.usuario_alvo_id)
+                  ? 'Pessoa'
+                  : 'Alvo'}
             </InputLabel>
             <Select
-              label={selected.chart_tipo === 'comissao' ? 'Vendedor' : selected.chart_tipo === 'marco' ? 'Pessoa' : 'Alvo'}
+              label={
+                selected.chart_tipo === 'comissao'
+                  ? 'Vendedor'
+                  : selected.por_grao && selected.graos.some((g) => g.usuario_alvo_id)
+                    ? 'Pessoa'
+                    : 'Alvo'
+              }
               value={graoKey}
               onChange={(e) => setGraoKey(String(e.target.value))}
               disabled={!user?.is_direcao && selected.graos.length === 1}

@@ -76,7 +76,7 @@ export function MetaStepperPage() {
   const [chartTipo, setChartTipo] = useState<ChartTipo>('gauge')
   const [chartCor, setChartCor] = useState('#00A8E8')
   const [niveis, setNiveis] = useState<NivelComissao[]>(TABELA_BELLUNO)
-  const [marcoPorPessoa, setMarcoPorPessoa] = useState(false)
+  const [porPessoa, setPorPessoa] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hydrated, setHydrated] = useState(!isEdit)
 
@@ -120,7 +120,7 @@ export function MetaStepperPage() {
     if (meta.niveis_comissao && meta.niveis_comissao.length > 0) {
       setNiveis(meta.niveis_comissao)
     }
-    setMarcoPorPessoa(Boolean(meta.marco_por_pessoa))
+    setPorPessoa(meta.marco_por_pessoa === true || meta.marco_por_pessoa === 1)
     setHydrated(true)
   }, [meta])
 
@@ -150,17 +150,17 @@ export function MetaStepperPage() {
       cargo_ids: cargosSel.map((c) => c.id),
       departamento_ids: deptsSel.map((d) => d.id),
       niveis_comissao: ehComissao ? niveis : undefined,
-      marco_por_pessoa: ehMarco && (tipoEscopo !== 'individual' || usuariosSel.length > 1) && marcoPorPessoa,
+      marco_por_pessoa: porPessoa,
     }
   }
 
   const mutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (body: ReturnType<typeof payload>) => {
       if (isEdit && id) {
-        await api.put(`/metas/${id}`, payload())
+        await api.put(`/metas/${id}`, body)
         return
       }
-      await api.post('/metas', payload())
+      await api.post('/metas', body)
     },
     onSuccess: async () => {
       await Promise.all([
@@ -175,9 +175,10 @@ export function MetaStepperPage() {
   })
 
   const ehComissao = chartTipo === 'comissao'
+  const ehQuantitativa = chartTipo !== 'marco' && !ehComissao
   const escopoPodeVariasPessoas = tipoEscopo !== 'individual' || usuariosSel.length > 1
-  const mostrarMarcoPorPessoa = chartTipo === 'marco' && escopoPodeVariasPessoas
-  const preview = previewMeta(chartTipo, chartCor, { marcoPorPessoa: mostrarMarcoPorPessoa && marcoPorPessoa })
+  const mostrarPorPessoa = (chartTipo === 'marco' || ehQuantitativa) && escopoPodeVariasPessoas
+  const preview = previewMeta(chartTipo, chartCor, { porPessoa: mostrarPorPessoa && porPessoa })
 
   if (user && !user.is_direcao) {
     return <Navigate to="/" replace />
@@ -447,24 +448,32 @@ export function MetaStepperPage() {
                     renderInput={(params) => <TextField {...params} label="Setores" />}
                   />
                 )}
-                {mostrarMarcoPorPessoa && (
+                {mostrarPorPessoa && (
                   <FormControl>
                     <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
-                      Como o marco é concluído
+                      {chartTipo === 'marco' ? 'Como o marco é concluído' : 'Como o valor é lançado'}
                     </Typography>
                     <RadioGroup
-                      value={marcoPorPessoa ? 'por_pessoa' : 'compartilhado'}
-                      onChange={(e) => setMarcoPorPessoa(e.target.value === 'por_pessoa')}
+                      value={porPessoa ? 'por_pessoa' : 'compartilhado'}
+                      onChange={(_, value) => setPorPessoa(value === 'por_pessoa')}
                     >
                       <FormControlLabel
                         value="compartilhado"
                         control={<Radio />}
-                        label="Um marco compartilhado: quem disparar marca para o grupo"
+                        label={
+                          chartTipo === 'marco'
+                            ? 'Um marco compartilhado: quem disparar marca para o grupo'
+                            : 'Um valor geral: quem lançar registra para o grupo'
+                        }
                       />
                       <FormControlLabel
                         value="por_pessoa"
                         control={<Radio />}
-                        label="Cada pessoa conclui o próprio marco"
+                        label={
+                          chartTipo === 'marco'
+                            ? 'Cada pessoa conclui o próprio marco'
+                            : 'Cada pessoa tem o próprio valor'
+                        }
                       />
                     </RadioGroup>
                   </FormControl>
@@ -478,7 +487,7 @@ export function MetaStepperPage() {
                 </Typography>
                 {chartTipo === 'marco' ? (
                   <Alert severity="info">
-                    {mostrarMarcoPorPessoa && marcoPorPessoa
+                    {mostrarPorPessoa && porPessoa
                       ? 'O painel lista feito ou pendente por pessoa. O marco só fica concluído quando todas concluírem.'
                       : 'O painel mostra só se o marco foi concluído ou ainda está pendente.'}
                   </Alert>
@@ -488,10 +497,17 @@ export function MetaStepperPage() {
                   </Alert>
                 ) : (
                   <>
-                    {chartTipo === 'column' && (tipoEscopo === 'global' || deptsSel.length > 1) && (
+                    {mostrarPorPessoa && porPessoa ? (
                       <Alert severity="info">
-                        Cada líder lançará a barra do próprio setor. A Direção pode lançar qualquer setor.
+                        Cada pessoa lança o próprio valor. O alvo vale para cada um, e no fechamento só entra quem bater.
                       </Alert>
+                    ) : (
+                      chartTipo === 'column' &&
+                      (tipoEscopo === 'global' || deptsSel.length > 1) && (
+                        <Alert severity="info">
+                          Cada líder lançará a barra do próprio setor. A Direção pode lançar qualquer setor.
+                        </Alert>
+                      )
                     )}
                     <ToggleButtonGroup exclusive value={chartTipo} onChange={(_, v) => v && setChartTipo(v)} sx={{ flexWrap: 'wrap' }}>
                       <ToggleButton value="gauge">Velocímetro</ToggleButton>
@@ -550,7 +566,7 @@ export function MetaStepperPage() {
                   Continuar
                 </Button>
               ) : (
-                <Button variant="contained" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+                <Button variant="contained" onClick={() => mutation.mutate(payload())} disabled={mutation.isPending}>
                   {isEdit ? 'Salvar alterações' : 'Publicar meta'}
                 </Button>
               )}

@@ -90,14 +90,29 @@ class Meta extends Model
         return $this->chart_tipo === 'comissao';
     }
 
+    public function isQuantitativa(): bool
+    {
+        return ! $this->isMarco() && ! $this->isComissao();
+    }
+
+    public function isPorPessoa(): bool
+    {
+        return (bool) $this->marco_por_pessoa && ($this->isMarco() || $this->isQuantitativa());
+    }
+
     public function isMarcoPorPessoa(): bool
     {
-        return $this->isMarco() && $this->marco_por_pessoa;
+        return $this->isMarco() && $this->isPorPessoa();
+    }
+
+    public function isQuantitativaPorPessoa(): bool
+    {
+        return $this->isQuantitativa() && $this->isPorPessoa();
     }
 
     public function isPorGrao(): bool
     {
-        return $this->isComparativa() || $this->isComissao() || $this->isMarcoPorPessoa();
+        return $this->isComparativa() || $this->isComissao() || $this->isPorPessoa();
     }
 
     public function enquadra(User $user): bool

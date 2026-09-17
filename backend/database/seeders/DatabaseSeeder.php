@@ -50,6 +50,14 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $this->user([
+            'name' => 'Admin',
+            'email' => 'admin@bellunotec.com.br',
+            'password' => $password,
+            'is_direcao' => true,
+            'ativo' => true,
+        ]);
+
+        $this->user([
             'name' => 'João Silva',
             'email' => 'joao.silva@bellunotec.com',
             'password' => $password,

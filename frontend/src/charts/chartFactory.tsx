@@ -5,6 +5,7 @@ import { LineMetaChart } from './LineMetaChart'
 import { ComissaoMetaChart } from './ComissaoMetaChart'
 import { MarcoMetaChart } from './MarcoMetaChart'
 import { ProgressBarMetaChart } from './ProgressBarMetaChart'
+import { SeriesPessoasList } from './SeriesPessoasList'
 
 const CHART_MAP = {
   gauge: GaugeMetaChart,
@@ -17,12 +18,18 @@ const CHART_MAP = {
 
 export function renderMetaChart(meta: DashboardMeta) {
   const Cmp = CHART_MAP[meta.chart.tipo]
-  return <Cmp meta={meta} />
+  return (
+    <>
+      <Cmp meta={meta} />
+      <SeriesPessoasList meta={meta} />
+    </>
+  )
 }
 
-export function previewMeta(tipo: ChartTipo, cor: string, extras?: { marcoPorPessoa?: boolean }): DashboardMeta {
+export function previewMeta(tipo: ChartTipo, cor: string, extras?: { porPessoa?: boolean }): DashboardMeta {
   const marco = tipo === 'marco'
   const comissao = tipo === 'comissao'
+  const porPessoa = Boolean(extras?.porPessoa)
   return {
     id: 0,
     titulo: comissao ? 'Comissão de vendedores' : marco ? 'Entregar o marco' : 'Pré-visualização',
@@ -42,12 +49,17 @@ export function previewMeta(tipo: ChartTipo, cor: string, extras?: { marcoPorPes
       { em: '2026-08-01', valor: 45 },
       { em: '2026-09-01', valor: 72 },
     ],
-    series: [
-      { label: 'RH', valor: 100, percentual: 100 },
-      { label: 'TI', valor: 75, percentual: 75 },
-      { label: 'ADM', valor: 50, percentual: 50 },
-    ],
-    marco: extras?.marcoPorPessoa
+    series: porPessoa && !marco
+      ? [
+          { label: 'Ana', usuario_alvo_id: 1, valor: 100, percentual: 100 },
+          { label: 'Bruno', usuario_alvo_id: 2, valor: 40, percentual: 40 },
+        ]
+      : [
+          { label: 'RH', valor: 100, percentual: 100 },
+          { label: 'TI', valor: 75, percentual: 75 },
+          { label: 'ADM', valor: 50, percentual: 50 },
+        ],
+    marco: marco && porPessoa
       ? {
           pessoas: [
             { usuario_id: 1, nome: 'Ana', feito: true },

@@ -118,7 +118,7 @@ class DashboardService
                 ]);
         }
 
-        if ($meta->chart_tipo === 'column') {
+        if ($meta->chart_tipo === 'column' || $meta->isQuantitativaPorPessoa()) {
             $payload['series'] = $this->series($user, $meta, $ano, $mes);
         }
 
@@ -140,13 +140,28 @@ class DashboardService
     private function series(User $user, Meta $meta, int $ano, int $mes): Collection
     {
         $ultimos = $this->progresso->ultimosPorGrao($meta, $ano, $mes);
-        $graos = $meta->isComparativa() && $user->isLider()
-            ? $this->acesso->graosLancaveis($user, $meta)
-            : $this->acesso->graosDaMeta($meta);
+        $graos = $user->is_direcao
+            ? $this->acesso->graosDaMeta($meta)
+            : $this->acesso->graosLancaveis($user, $meta);
+
+        if ($meta->isPorPessoa() || ($meta->isComparativa() && $user->isLider() && ! $user->is_direcao)) {
+            if ($user->perfil() === 'colaborador') {
+                $graos = $graos->filter(fn (array $g) => (int) ($g['usuario_alvo_id'] ?? 0) === (int) $user->id)->values();
+            } elseif ($user->isLider() && ! $user->is_direcao) {
+                $graos = $graos->filter(fn (array $g) => (int) ($g['departamento_id'] ?? 0) === (int) $user->departamento_id)->values();
+            }
+        } elseif (! ($meta->isComparativa() && $user->isLider())) {
+            $graos = $this->acesso->graosDaMeta($meta);
+        }
+
         $alvo = (float) $meta->getAttribute('valor_meta');
 
         return $graos->map(function (array $grao) use ($ultimos, $meta, $alvo) {
             $ultimo = $ultimos->first(function (MetaLancamento $l) use ($grao) {
+                if (($grao['usuario_alvo_id'] ?? null) !== null) {
+                    return (int) $l->usuario_alvo_id === (int) $grao['usuario_alvo_id'];
+                }
+
                 return (int) $l->departamento_id === (int) ($grao['departamento_id'] ?? 0)
                     && (int) $l->cargo_id === (int) ($grao['cargo_id'] ?? 0)
                     && (int) $l->usuario_alvo_id === (int) ($grao['usuario_alvo_id'] ?? 0);

@@ -34,7 +34,7 @@ class AcessoMetas
         $meta->loadMissing(['departamentos', 'cargos', 'usuarios']);
 
         if ($user->isLider()) {
-            if ($meta->isComissao() || $meta->isMarcoPorPessoa()) {
+            if ($meta->isComissao() || $meta->isPorPessoa()) {
                 return $this->graosDaMeta($meta)->contains(
                     fn (array $g) => (int) ($g['departamento_id'] ?? 0) === (int) $user->departamento_id
                 );
@@ -124,7 +124,7 @@ class AcessoMetas
 
     private function liderPodeLancar(User $user, Meta $meta, array $alvo = []): bool
     {
-        if ($meta->isComissao() || $meta->isMarcoPorPessoa()) {
+        if ($meta->isComissao() || $meta->isPorPessoa()) {
             return $this->usuarioAlvoComissaoNoPerimetro($user, $meta, $alvo);
         }
 
@@ -141,7 +141,7 @@ class AcessoMetas
 
     private function colaboradorPodeLancar(User $user, Meta $meta, array $alvo = []): bool
     {
-        if ($meta->isComissao() || $meta->isMarcoPorPessoa()) {
+        if ($meta->isComissao() || $meta->isPorPessoa()) {
             if (! $this->usuarioNoEscopoComissao($user, $meta)) {
                 return false;
             }
@@ -170,7 +170,7 @@ class AcessoMetas
 
     private function todosGraos(Meta $meta): Collection
     {
-        if ($meta->isComissao() || $meta->isMarcoPorPessoa()) {
+        if ($meta->isComissao() || $meta->isPorPessoa()) {
             return $this->pessoasDoEscopo($meta)->map(fn (User $u) => [
                 'label' => $u->name,
                 'departamento_id' => $u->departamento_id,

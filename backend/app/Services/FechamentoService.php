@@ -46,8 +46,8 @@ class FechamentoService
                 continue;
             }
 
-            if ($meta->isMarcoPorPessoa()) {
-                if ($this->acumularMarcoPorPessoa($meta, $ativos, $porUsuario, $ano, $mes)) {
+            if ($meta->isPorPessoa()) {
+                if ($this->acumularPorPessoa($meta, $ativos, $porUsuario, $ano, $mes)) {
                     $metasBatidas++;
                 }
 
@@ -152,18 +152,23 @@ class FechamentoService
      * @param  Collection<int, User>  $ativos
      * @param  array<int, array{usuario: User, itens: list<array<string, mixed>>}>  $porUsuario
      */
-    private function acumularMarcoPorPessoa(Meta $meta, Collection $ativos, array &$porUsuario, int $ano, int $mes): bool
+    private function acumularPorPessoa(Meta $meta, Collection $ativos, array &$porUsuario, int $ano, int $mes): bool
     {
         $ultimos = $this->progresso->ultimosPorGrao($meta, $ano, $mes);
         $bonus = round((float) $meta->valor_bonus, 2);
+        $alvo = (float) $meta->getAttribute('valor_meta');
         $pagouAlguem = false;
 
         foreach ($this->beneficiarios($meta, $ativos) as $user) {
             $lancamento = $ultimos->first(
                 fn (MetaLancamento $l) => (int) $l->usuario_alvo_id === (int) $user->id
             );
+            $valor = (float) ($lancamento?->valor_realizado ?? 0);
+            $percentual = $meta->isMarco()
+                ? ($valor >= 1 ? 100.0 : 0.0)
+                : IndicadorStatus::percentual($valor, $alvo, $meta->sentido);
 
-            if ((float) ($lancamento?->valor_realizado ?? 0) < 1) {
+            if ($percentual < 100) {
                 continue;
             }
 
@@ -173,7 +178,7 @@ class FechamentoService
                 'meta_id' => $meta->id,
                 'titulo' => $meta->titulo,
                 'tipo_escopo' => $meta->tipo_escopo,
-                'percentual' => 100.0,
+                'percentual' => $percentual,
                 'valor_bonus' => $bonus,
             ];
         }

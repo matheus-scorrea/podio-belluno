@@ -15,7 +15,7 @@ class StoreLancamentoRequest extends FormRequest
     public function rules(): array
     {
         $meta = $this->route('meta');
-        $porPessoa = $meta instanceof Meta && ($meta->isComissao() || $meta->isMarcoPorPessoa());
+        $porPessoa = $meta instanceof Meta && ($meta->isComissao() || $meta->isPorPessoa());
 
         return [
             'valor_realizado' => ['required', 'numeric'],

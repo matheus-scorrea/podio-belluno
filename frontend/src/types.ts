@@ -207,7 +207,7 @@ export type MetaDetail = {
   chart_tipo: ChartTipo
   chart_cor: string
   niveis_comissao?: NivelComissao[] | null
-  marco_por_pessoa?: boolean
+  marco_por_pessoa?: boolean | 0 | 1
   usuarios: AuthUser[]
   cargos: Cargo[]
   departamentos: Departamento[]

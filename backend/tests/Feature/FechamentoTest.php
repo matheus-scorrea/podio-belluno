@@ -330,6 +330,48 @@ class FechamentoTest extends TestCase
         $this->assertFalse($ids->contains($colega->id));
     }
 
+    public function test_quantitativa_por_pessoa_paga_so_quem_bateu(): void
+    {
+        $org = $this->createOrg();
+        $colega = User::factory()->create([
+            'departamento_id' => $org['dept']->id,
+            'cargo_id' => $org['comumCargo']->id,
+        ]);
+
+        $this->actingAs($org['direcao'])->postJson('/api/metas', [
+            'titulo' => 'Atendimentos individuais',
+            'ano' => 2026,
+            'mes' => 9,
+            'tipo_escopo' => 'individual',
+            'valor_meta' => 100,
+            'valor_bonus' => 90,
+            'unidade' => 'un',
+            'sentido' => 'maior_melhor',
+            'chart_tipo' => 'gauge',
+            'chart_cor' => '#00A8E8',
+            'usuario_ids' => [$org['colaborador']->id, $colega->id],
+            'marco_por_pessoa' => true,
+        ])->assertCreated();
+
+        $meta = Meta::query()->where('titulo', 'Atendimentos individuais')->firstOrFail();
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 100,
+            'data_evento' => '2026-09-09',
+            'usuario_alvo_id' => $org['colaborador']->id,
+        ])->assertCreated();
+
+        $response = $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9');
+        $ids = collect($response->json('usuarios'))->pluck('id');
+
+        $response->assertOk()
+            ->assertJsonPath('pessoas', 1)
+            ->assertJsonPath('metas_batidas', 1)
+            ->assertJsonPath('total_bonus', 90);
+        $this->assertTrue($ids->contains($org['colaborador']->id));
+        $this->assertFalse($ids->contains($colega->id));
+    }
+
     /**
      * @param  array<string, mixed>  $org
      * @param  list<int>|null  $usuarioIds

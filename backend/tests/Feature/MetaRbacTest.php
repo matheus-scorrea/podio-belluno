@@ -542,6 +542,146 @@ class MetaRbacTest extends TestCase
         $this->assertSame(50, (int) $outubro['percentual']);
     }
 
+    public function test_quantitativa_por_pessoa_isola_lancamento_e_nao_deixa_colega_disparar(): void
+    {
+        $org = $this->createOrg();
+        $colega = User::factory()->create([
+            'name' => 'Bruno',
+            'departamento_id' => $org['dept']->id,
+            'cargo_id' => $org['comumCargo']->id,
+        ]);
+
+        $this->actingAs($org['direcao'])->postJson('/api/metas', [
+            'titulo' => 'Atendimentos',
+            'ano' => 2026,
+            'mes' => 9,
+            'tipo_escopo' => 'individual',
+            'valor_meta' => 100,
+            'valor_bonus' => 80,
+            'unidade' => 'un',
+            'sentido' => 'maior_melhor',
+            'chart_tipo' => 'gauge',
+            'chart_cor' => '#00A8E8',
+            'usuario_ids' => [$org['colaborador']->id, $colega->id],
+            'marco_por_pessoa' => true,
+        ])->assertCreated()
+            ->assertJsonPath('marco_por_pessoa', true);
+
+        $meta = Meta::query()->where('titulo', 'Atendimentos')->firstOrFail();
+        $this->assertTrue($meta->isQuantitativaPorPessoa());
+        $this->assertTrue($meta->isPorGrao());
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 100,
+            'data_evento' => '2026-09-09',
+        ])->assertUnprocessable();
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 100,
+            'data_evento' => '2026-09-09',
+            'usuario_alvo_id' => $colega->id,
+        ])->assertForbidden();
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 100,
+            'data_evento' => '2026-09-09',
+            'usuario_alvo_id' => $org['colaborador']->id,
+        ])->assertCreated();
+
+        $dash = $this->actingAs($org['direcao'])->getJson('/api/dashboard?ano=2026&mes=9');
+        $item = collect($dash->json('metas'))->firstWhere('titulo', 'Atendimentos');
+        $this->assertNotNull($item);
+        $this->assertSame(50, (int) $item['percentual']);
+        $series = collect($item['series']);
+        $anaDash = $series->firstWhere('usuario_alvo_id', $org['colaborador']->id);
+        $brunoDash = $series->firstWhere('usuario_alvo_id', $colega->id);
+        $this->assertNotNull($anaDash);
+        $this->assertNotNull($brunoDash);
+        $this->assertSame(100, (int) $anaDash['valor']);
+        $this->assertSame(0, (int) $brunoDash['valor']);
+
+        $ana = collect($this->actingAs($org['colaborador'])->getJson('/api/dashboard?ano=2026&mes=9')->json('metas'))
+            ->firstWhere('titulo', 'Atendimentos');
+        $this->assertCount(1, $ana['series']);
+        $this->assertSame($org['colaborador']->id, $ana['series'][0]['usuario_alvo_id']);
+        $this->assertSame(100, (int) $ana['series'][0]['valor']);
+
+        $this->actingAs($org['direcao'])->postJson('/api/metas/abrir-competencia', [
+            'ano' => 2026,
+            'mes' => 10,
+        ])->assertOk()->assertJson(['criadas' => 1]);
+
+        $outubro = collect($this->actingAs($org['direcao'])->getJson('/api/dashboard?ano=2026&mes=10')->json('metas'))
+            ->firstWhere('titulo', 'Atendimentos');
+        $outubroSeries = collect($outubro['series']);
+        $this->assertSame(0, (int) $outubroSeries->firstWhere('usuario_alvo_id', $org['colaborador']->id)['valor']);
+        $this->assertSame(0, (int) $outubro['percentual']);
+    }
+
+    public function test_quantitativa_por_pessoa_persiste_no_cadastro_e_volta_no_detalhe(): void
+    {
+        $org = $this->createOrg();
+
+        $payload = [
+            'titulo' => 'Atendimentos por pessoa',
+            'descricao' => '',
+            'ano' => 2026,
+            'mes' => 9,
+            'tipo_escopo' => 'departamento',
+            'valor_meta' => 100,
+            'valor_bonus' => 0,
+            'unidade' => '%',
+            'sentido' => 'maior_melhor',
+            'chart_tipo' => 'gauge',
+            'chart_cor' => '#00A8E8',
+            'usuario_ids' => [],
+            'cargo_ids' => [],
+            'departamento_ids' => [$org['dept']->id],
+            'marco_por_pessoa' => true,
+        ];
+
+        $criada = $this->actingAs($org['direcao'])->postJson('/api/metas', $payload)
+            ->assertCreated()
+            ->assertJsonPath('marco_por_pessoa', true);
+
+        $id = $criada->json('id');
+        $this->assertTrue((bool) Meta::query()->findOrFail($id)->marco_por_pessoa);
+
+        $this->actingAs($org['direcao'])->getJson("/api/metas/{$id}?ano=2026&mes=9")
+            ->assertOk()
+            ->assertJsonPath('marco_por_pessoa', true);
+
+        $payload['titulo'] = 'Atendimentos por pessoa (editada)';
+        $this->actingAs($org['direcao'])->putJson("/api/metas/{$id}", $payload)
+            ->assertOk()
+            ->assertJsonPath('marco_por_pessoa', true)
+            ->assertJsonPath('titulo', 'Atendimentos por pessoa (editada)');
+
+        $this->actingAs($org['direcao'])->getJson("/api/metas/{$id}?ano=2026&mes=9")
+            ->assertOk()
+            ->assertJsonPath('marco_por_pessoa', true);
+    }
+
+    public function test_quantitativa_por_pessoa_some_quando_o_escopo_e_uma_pessoa_so(): void
+    {
+        $org = $this->createOrg();
+
+        $this->actingAs($org['direcao'])->postJson('/api/metas', [
+            'titulo' => 'Meta só da Ana',
+            'ano' => 2026,
+            'mes' => 9,
+            'tipo_escopo' => 'individual',
+            'valor_meta' => 100,
+            'unidade' => '%',
+            'sentido' => 'maior_melhor',
+            'chart_tipo' => 'gauge',
+            'chart_cor' => '#00A8E8',
+            'usuario_ids' => [$org['colaborador']->id],
+            'marco_por_pessoa' => true,
+        ])->assertCreated()
+            ->assertJsonPath('marco_por_pessoa', false);
+    }
+
     public function test_marco_por_pessoa_some_quando_o_escopo_e_uma_pessoa_so(): void
     {
         $org = $this->createOrg();

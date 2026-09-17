@@ -70,6 +70,7 @@ class MetaController extends Controller
     {
         $data = $request->validated();
         $data['created_by'] = $request->user()->id;
+        $data['marco_por_pessoa'] = $request->boolean('marco_por_pessoa');
         $data = $this->normalizarIndicador($data);
 
         $meta = Meta::query()->create(collect($data)->except(['ano', 'mes', 'valor_meta', 'usuario_ids', 'cargo_ids', 'departamento_ids'])->all());
@@ -82,7 +83,7 @@ class MetaController extends Controller
             $data['niveis_comissao'] ?? null,
         );
 
-        return response()->json($this->detalhar($meta, (int) $data['ano'], (int) $data['mes']), 201);
+        return response()->json($this->detalhar($meta->refresh(), (int) $data['ano'], (int) $data['mes']), 201);
     }
 
     public function show(Request $request, Meta $meta)
@@ -97,6 +98,7 @@ class MetaController extends Controller
     public function update(StoreMetaRequest $request, Meta $meta)
     {
         $data = $request->validated();
+        $data['marco_por_pessoa'] = $request->boolean('marco_por_pessoa');
         $data = $this->normalizarIndicador($data);
         $meta->update(collect($data)->except(['ano', 'mes', 'valor_meta', 'usuario_ids', 'cargo_ids', 'departamento_ids'])->all());
         $this->syncEscopo($meta, $data);
@@ -108,7 +110,7 @@ class MetaController extends Controller
             $data['niveis_comissao'] ?? null,
         );
 
-        if ($meta->isComissao() || $meta->isMarcoPorPessoa()) {
+        if ($meta->isComissao() || $meta->isPorPessoa()) {
             $this->progresso->refreshAgregado($meta->fresh(), (int) $data['ano'], (int) $data['mes']);
         }
 
@@ -150,15 +152,17 @@ class MetaController extends Controller
      */
     private function normalizarIndicador(array $data): array
     {
+        $varios = ($data['tipo_escopo'] ?? '') !== 'individual'
+            || count($data['usuario_ids'] ?? []) > 1;
+        $porPessoa = $varios && filter_var($data['marco_por_pessoa'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
         if (($data['chart_tipo'] ?? '') === 'marco') {
             $data['unidade'] = 'marco';
             $data['sentido'] = 'maior_melhor';
             $data['agregacao'] = 'ultimo';
             $data['valor_meta'] = 1;
             $data['niveis_comissao'] = null;
-            $varios = ($data['tipo_escopo'] ?? '') !== 'individual'
-                || count($data['usuario_ids'] ?? []) > 1;
-            $data['marco_por_pessoa'] = $varios && (bool) ($data['marco_por_pessoa'] ?? false);
+            $data['marco_por_pessoa'] = $porPessoa;
         } elseif (($data['chart_tipo'] ?? '') === 'comissao') {
             $data['unidade'] = 'R$';
             $data['sentido'] = 'maior_melhor';
@@ -166,9 +170,9 @@ class MetaController extends Controller
             $data['valor_meta'] = app(ComissaoService::class)->maiorVendaMin($data['niveis_comissao'] ?? []);
             $data['marco_por_pessoa'] = false;
         } else {
-            $data['agregacao'] = ($data['unidade'] ?? '') === '%' ? 'media' : 'soma';
+            $data['agregacao'] = $porPessoa || ($data['unidade'] ?? '') === '%' ? 'media' : 'soma';
             $data['niveis_comissao'] = null;
-            $data['marco_por_pessoa'] = false;
+            $data['marco_por_pessoa'] = $porPessoa;
         }
 
         return $data;

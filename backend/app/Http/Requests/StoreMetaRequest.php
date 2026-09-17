@@ -13,6 +13,13 @@ class StoreMetaRequest extends FormRequest
         return $this->user()?->is_direcao ?? false;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'marco_por_pessoa' => $this->boolean('marco_por_pessoa'),
+        ]);
+    }
+
     public function rules(): array
     {
         return [
@@ -33,7 +40,7 @@ class StoreMetaRequest extends FormRequest
             'cargo_ids.*' => ['exists:cargos,id'],
             'departamento_ids' => ['array', 'required_if:tipo_escopo,departamento'],
             'departamento_ids.*' => ['exists:departamentos,id'],
-            'marco_por_pessoa' => ['sometimes', 'boolean'],
+            'marco_por_pessoa' => ['boolean'],
             'niveis_comissao' => ['nullable', 'array', 'required_if:chart_tipo,comissao', 'min:1'],
             'niveis_comissao.*.nome' => ['required_with:niveis_comissao', 'string', 'max:40'],
             'niveis_comissao.*.venda_min' => ['required_with:niveis_comissao', 'numeric', 'min:0'],
