@@ -54,6 +54,7 @@ const navDirecao = [
 
 const navEquipe = [
   { to: '/', label: 'Painel', icon: <DashboardIcon fontSize="small" />, match: (p: string) => p === '/' },
+  { to: '/fechamento', label: 'Fechamento', icon: <PaymentsOutlinedIcon fontSize="small" />, match: (p: string) => p.startsWith('/fechamento') },
   navConta,
 ]
 

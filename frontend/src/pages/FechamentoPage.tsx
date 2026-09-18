@@ -24,7 +24,7 @@ import {
 } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { Fragment, useMemo, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../auth/useAuth'
 import { EmptyState } from '../components/EmptyState'
@@ -55,16 +55,13 @@ export function FechamentoPage() {
   const { data: departamentos } = useQuery({
     queryKey: ['departamentos'],
     queryFn: async () => (await api.get('/departamentos')).data as Departamento[],
+    enabled: Boolean(user?.is_direcao),
   })
 
   const { data, isLoading } = useQuery({
     queryKey: ['fechamento', filtros],
     queryFn: async () => (await api.get(`/fechamento?${filtros}`)).data as FechamentoResponse,
   })
-
-  if (user && !user.is_direcao) {
-    return <Navigate to="/" replace />
-  }
 
   function toggle(id: number) {
     setAbertos((atual) => (atual.includes(id) ? atual.filter((item) => item !== id) : [...atual, id]))
@@ -74,7 +71,7 @@ export function FechamentoPage() {
     <AppShell ano={ano} mes={mes}>
       <PageHeader
         title="Fechamento do mês"
-        subtitle="Quem bateu meta nesta competência e quanto recebe de bônus."
+        subtitle="Quem bateu meta no seu recorte nesta competência e quanto recebe de bônus."
       />
       <FilterBar>
         <FormControl size="small" sx={{ minWidth: 220 }}>
@@ -96,25 +93,27 @@ export function FechamentoPage() {
             ))}
           </Select>
         </FormControl>
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>Setor</InputLabel>
-          <Select
-            label="Setor"
-            value={departamentoId}
-            onChange={(e) => {
-              const value: unknown = e.target.value
-              setDepartamentoId(value === '' ? '' : Number(value))
-              setAbertos([])
-            }}
-          >
-            <MenuItem value="">Todos</MenuItem>
-            {departamentosParaSelect(departamentos).map((d) => (
-              <MenuItem key={d.id} value={d.id}>
-                {d.nome}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        {user?.is_direcao && (
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Setor</InputLabel>
+            <Select
+              label="Setor"
+              value={departamentoId}
+              onChange={(e) => {
+                const value: unknown = e.target.value
+                setDepartamentoId(value === '' ? '' : Number(value))
+                setAbertos([])
+              }}
+            >
+              <MenuItem value="">Todos</MenuItem>
+              {departamentosParaSelect(departamentos).map((d) => (
+                <MenuItem key={d.id} value={d.id}>
+                  {d.nome}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
       </FilterBar>
 
       {isLoading ? (
@@ -150,7 +149,7 @@ export function FechamentoPage() {
             </Grid>
           </Grid>
 
-          {(data?.pessoas ?? 0) > 0 && (data?.total_bonus ?? 0) === 0 && (
+          {user?.is_direcao && (data?.pessoas ?? 0) > 0 && (data?.total_bonus ?? 0) === 0 && (
             <Alert
               severity="info"
               sx={{ mb: 3 }}

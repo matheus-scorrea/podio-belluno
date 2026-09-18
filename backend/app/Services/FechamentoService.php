@@ -17,11 +17,12 @@ class FechamentoService
         private ComissaoService $comissao,
     ) {}
 
-    public function montar(int $ano, int $mes, ?int $departamentoId = null): array
+    public function montar(User $user, int $ano, int $mes, ?int $departamentoId = null): array
     {
         $metas = Meta::query()
             ->with(['departamentos', 'cargos', 'usuarios'])
             ->competencia($ano, $mes)
+            ->visibleTo($user)
             ->orderBy('titulo')
             ->get();
 
@@ -33,40 +34,33 @@ class FechamentoService
 
         /** @var array<int, array{usuario: User, itens: list<array<string, mixed>>}> $porUsuario */
         $porUsuario = [];
-        $metasBatidas = 0;
 
         foreach ($metas as $meta) {
             $this->competencias->hidratar($meta, $ano, $mes);
 
             if ($meta->isComissao()) {
-                if ($this->acumularComissao($meta, $ativos, $porUsuario, $ano, $mes)) {
-                    $metasBatidas++;
-                }
+                $this->acumularComissao($meta, $ativos, $porUsuario, $ano, $mes);
 
                 continue;
             }
 
             if ($meta->isPorPessoa()) {
-                if ($this->acumularPorPessoa($meta, $ativos, $porUsuario, $ano, $mes)) {
-                    $metasBatidas++;
-                }
+                $this->acumularPorPessoa($meta, $ativos, $porUsuario, $ano, $mes);
 
                 continue;
             }
 
             $series = $meta->isComparativa() ? $this->series($meta, $ano, $mes) : collect();
             $bonus = round((float) $meta->valor_bonus, 2);
-            $pagouAlguem = false;
 
-            foreach ($this->beneficiarios($meta, $ativos) as $user) {
-                $percentual = $this->percentualDoUsuario($user, $meta, $series);
+            foreach ($this->beneficiarios($meta, $ativos) as $beneficiario) {
+                $percentual = $this->percentualDoUsuario($beneficiario, $meta, $series);
                 if ($percentual < 100) {
                     continue;
                 }
 
-                $pagouAlguem = true;
-                $porUsuario[$user->id] ??= ['usuario' => $user, 'itens' => []];
-                $porUsuario[$user->id]['itens'][] = [
+                $porUsuario[$beneficiario->id] ??= ['usuario' => $beneficiario, 'itens' => []];
+                $porUsuario[$beneficiario->id]['itens'][] = [
                     'meta_id' => $meta->id,
                     'titulo' => $meta->titulo,
                     'tipo_escopo' => $meta->tipo_escopo,
@@ -74,28 +68,33 @@ class FechamentoService
                     'valor_bonus' => $bonus,
                 ];
             }
-
-            if ($pagouAlguem) {
-                $metasBatidas++;
-            }
         }
 
         $usuarios = collect($porUsuario)
             ->map(function (array $row) {
-                $user = $row['usuario'];
+                $pessoa = $row['usuario'];
                 $itens = collect($row['itens'])->sortBy('titulo', SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
 
                 return [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'departamento' => $user->departamento?->nome,
-                    'departamento_id' => $user->departamento_id,
-                    'cargo' => $user->cargo?->nome,
+                    'id' => $pessoa->id,
+                    'name' => $pessoa->name,
+                    'departamento' => $pessoa->departamento?->nome,
+                    'departamento_id' => $pessoa->departamento_id,
+                    'cargo' => $pessoa->cargo?->nome,
                     'bonus_total' => round((float) collect($itens)->sum('valor_bonus'), 2),
                     'itens' => $itens,
                 ];
-            })
-            ->when($departamentoId, fn (Collection $c) => $c->where('departamento_id', $departamentoId))
+            });
+
+        $usuarios = match ($user->perfil()) {
+            'direcao' => $departamentoId
+                ? $usuarios->where('departamento_id', $departamentoId)
+                : $usuarios,
+            'lider' => $usuarios->where('departamento_id', $user->departamento_id),
+            default => $usuarios->where('id', $user->id),
+        };
+
+        $usuarios = $usuarios
             ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
             ->values();
 
@@ -103,7 +102,10 @@ class FechamentoService
             'ano' => $ano,
             'mes' => $mes,
             'pessoas' => $usuarios->count(),
-            'metas_batidas' => $metasBatidas,
+            'metas_batidas' => $usuarios
+                ->flatMap(fn (array $pessoa) => collect($pessoa['itens'])->pluck('meta_id'))
+                ->unique()
+                ->count(),
             'total_bonus' => round((float) $usuarios->sum('bonus_total'), 2),
             'usuarios' => $usuarios->all(),
         ];

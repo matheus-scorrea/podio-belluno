@@ -28,13 +28,13 @@ Route::middleware(['auth:sanctum', 'usuario.ativo'])->group(function () {
         Route::get('/metas/{meta}', [MetaController::class, 'show']);
         Route::get('/metas/{meta}/lancamentos', [LancamentoController::class, 'index']);
         Route::post('/metas/{meta}/lancamentos', [LancamentoController::class, 'store']);
+        Route::get('/fechamento', [FechamentoController::class, 'show']);
 
         Route::middleware('direcao')->group(function () {
             Route::apiResource('departamentos', DepartamentoController::class)->except(['index']);
             Route::apiResource('cargos', CargoController::class)->except(['index']);
             Route::apiResource('usuarios', UsuarioController::class);
             Route::post('/usuarios/{usuario}/senha-temporaria', [UsuarioController::class, 'senhaTemporaria']);
-            Route::get('/fechamento', [FechamentoController::class, 'show']);
             Route::post('/metas/abrir-competencia', [MetaController::class, 'abrirCompetencia']);
             Route::post('/metas', [MetaController::class, 'store']);
             Route::put('/metas/{meta}', [MetaController::class, 'update']);
