@@ -19,11 +19,13 @@ import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { ResultadosAnoChart } from '../charts/ResultadosAnoChart'
 import { EmptyState } from '../components/EmptyState'
+import { EscopoAtribuicao } from '../components/EscopoAtribuicao'
+import { BonusChip } from '../components/MetaDadoChips'
 import { FilterBar } from '../components/FilterBar'
 import { KpiCard } from '../components/KpiCard'
 import { PageHeader } from '../components/PageHeader'
 import { AppShell } from '../layout/AppShell'
-import { competenciaLabel, escopoLabel, formatBonus } from '../lib/labels'
+import { competenciaLabel, formatBonus } from '../lib/labels'
 import type { MeusResultadosMes, MeusResultadosResponse } from '../types'
 
 const ANOS = [2025, 2026, 2027]
@@ -184,7 +186,7 @@ function MesCard({
         </Stack>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', pl: { xs: 5, sm: 0 } }}>
           <Chip size="small" variant="outlined" label={`${mes.batidas}/${mes.total_metas} batidas`} />
-          <Chip size="small" label={formatBonus(mes.bonus_total)} />
+          <BonusChip valor={mes.bonus_total} />
         </Stack>
       </Stack>
       <Collapse in={aberto} timeout="auto" unmountOnExit>
@@ -205,7 +207,7 @@ function MesCard({
                   <Box sx={{ minWidth: 0 }}>
                     <Typography variant="body2">{item.titulo}</Typography>
                     <Stack direction="row" spacing={0.75} sx={{ mt: 0.4, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <Chip size="small" label={escopoLabel(item.tipo_escopo)} />
+                      <EscopoAtribuicao tipo={item.tipo_escopo} />
                       <Chip
                         size="small"
                         label={item.bateu ? 'Bateu' : 'Pendente'}
@@ -217,12 +219,7 @@ function MesCard({
                       </Typography>
                     </Stack>
                   </Box>
-                  <Typography
-                    variant="body2"
-                    sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600, whiteSpace: 'nowrap' }}
-                  >
-                    {formatBonus(item.valor_bonus)}
-                  </Typography>
+                  <BonusChip valor={item.valor_bonus} />
                 </Stack>
               ))}
             </Stack>

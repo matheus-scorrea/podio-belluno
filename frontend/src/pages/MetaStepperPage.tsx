@@ -39,6 +39,7 @@ import { previewMeta, renderMetaChart } from '../charts/chartFactory'
 import { PageHeader } from '../components/PageHeader'
 import { AppShell } from '../layout/AppShell'
 import { nivelEmBranco, TABELA_BELLUNO, type NivelComissao } from '../lib/comissao'
+import { faixaEmBranco, TABELA_SDR_REUNIOES, type NivelFaixa } from '../lib/faixaUnidade'
 import { formatBonus, MESES } from '../lib/labels'
 import { cargosParaEscopo, departamentosParaSelect } from '../lib/organizacao'
 import type { AuthUser, Cargo, ChartTipo, Departamento, MetaDetail, ModoBonus, Sentido, TipoEscopo } from '../types'
@@ -109,6 +110,30 @@ function BonusModoHelp({
           Ex.: fez {alvo + unidadesAMais} → {formatBonus(bonus + unidadesAMais * extra)}.
         </Typography>
       </>
+    ) : modo === 'faixa_unidade' ? (
+      <>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+          Por faixas de quantidade
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          A maior faixa cujo piso foi atingido define a taxa. O pagamento é quantidade realizada × taxa da faixa, sobre o total do mês.
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          Ex. SDR: 32 reuniões entram na Meta 2 (R$ 12) → {formatBonus(32 * 12)}. Abaixo do primeiro piso, o bônus é {formatBonus(0)}.
+        </Typography>
+      </>
+    ) : modo === 'por_unidade' ? (
+      <>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+          Por unidade
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          Cada unidade realizada paga {formatBonus(bonus)}, desde a primeira. Não depende de bater o alvo.
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          Ex.: 3 contratos → {formatBonus(3 * bonus)}.
+        </Typography>
+      </>
     ) : (
       <>
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -165,7 +190,7 @@ function TipoIndicadorHelp({ tipo }: { tipo: 'quantitativo' | 'marco' | 'comissa
           Meta com número — %, R$ ou quantidade. Tem alvo e lançamentos no mês. O atingimento é realizado ÷ alvo.
         </Typography>
         <Typography variant="body2" sx={{ mt: 0.75 }}>
-          O bônus pode ser fixo, proporcional (acompanha o %) ou por unidade extra. No painel aparece como velocímetro, barra ou gráfico.
+          O bônus pode ser fixo, proporcional, por unidade extra, por faixas de quantidade ou por unidade desde a primeira. No painel aparece como velocímetro, barra ou gráfico.
         </Typography>
       </>
     )
@@ -237,6 +262,7 @@ export function MetaStepperPage() {
   const [chartTipo, setChartTipo] = useState<ChartTipo>('gauge')
   const [chartCor, setChartCor] = useState('#00A8E8')
   const [niveis, setNiveis] = useState<NivelComissao[]>(TABELA_BELLUNO)
+  const [faixas, setFaixas] = useState<NivelFaixa[]>(TABELA_SDR_REUNIOES)
   const [porPessoa, setPorPessoa] = useState(false)
   const [modoBonus, setModoBonus] = useState<ModoBonus>('fixo')
   const [bonusPiso, setBonusPiso] = useState('100')
@@ -285,6 +311,9 @@ export function MetaStepperPage() {
     if (meta.niveis_comissao && meta.niveis_comissao.length > 0) {
       setNiveis(meta.niveis_comissao)
     }
+    if (meta.niveis_faixa && meta.niveis_faixa.length > 0) {
+      setFaixas(meta.niveis_faixa)
+    }
     setPorPessoa(meta.marco_por_pessoa === true || meta.marco_por_pessoa === 1)
     setModoBonus(meta.modo_bonus ?? 'fixo')
     setBonusPiso(String(meta.bonus_piso_percentual ?? 100))
@@ -319,6 +348,9 @@ export function MetaStepperPage() {
       cargo_ids: cargosSel.map((c) => c.id),
       departamento_ids: deptsSel.map((d) => d.id),
       niveis_comissao: ehComissao ? niveis : undefined,
+      niveis_faixa: !ehMarco && !ehComissao && sentido !== 'menor_melhor' && modoBonus === 'faixa_unidade'
+        ? faixas
+        : undefined,
       marco_por_pessoa: porPessoa,
       modo_bonus: ehMarco || ehComissao || sentido === 'menor_melhor' ? 'fixo' : modoBonus,
       bonus_piso_percentual: !ehMarco && !ehComissao && sentido !== 'menor_melhor' && modoBonus === 'linear'
@@ -355,6 +387,7 @@ export function MetaStepperPage() {
 
   const ehComissao = chartTipo === 'comissao'
   const ehQuantitativa = chartTipo !== 'marco' && !ehComissao
+  const ehFaixaUnidade = ehQuantitativa && modoBonus === 'faixa_unidade'
   const escopoPodeVariasPessoas = tipoEscopo !== 'individual' || usuariosSel.length > 1
   const mostrarPorPessoa = (chartTipo === 'marco' || ehQuantitativa) && escopoPodeVariasPessoas
   const preview = previewMeta(chartTipo, chartCor, { porPessoa: mostrarPorPessoa && porPessoa })
@@ -393,7 +426,7 @@ export function MetaStepperPage() {
               ))}
             </Stepper>
             {active === 0 && (
-              <Stack spacing={2.5} sx={{ maxWidth: ehComissao ? 960 : 640 }}>
+              <Stack spacing={2.5} sx={{ maxWidth: ehComissao || ehFaixaUnidade ? 960 : 640 }}>
                 <TextField label="Título" value={titulo} onChange={(e) => setTitulo(e.target.value)} required />
                 <TextField
                   label="Descrição"
@@ -585,9 +618,9 @@ export function MetaStepperPage() {
                     </>
                   )
                 )}
-                {!ehComissao && (
+                {!ehComissao && modoBonus !== 'faixa_unidade' && (
                   <TextField
-                    label="Valor do bônus"
+                    label={modoBonus === 'por_unidade' ? 'Valor por unidade' : 'Valor do bônus'}
                     type="number"
                     value={valorBonus}
                     onChange={(e) => setValorBonus(e.target.value)}
@@ -596,7 +629,9 @@ export function MetaStepperPage() {
                         ? 'Valor pago ao atingir 100% do alvo. Acima do piso, o pagamento cresce na mesma proporção.'
                         : ehQuantitativa && modoBonus === 'unidade' && sentido === 'maior_melhor'
                           ? 'Valor pago ao bater o alvo. Cada unidade extra usa o campo abaixo.'
-                          : 'Pago no fechamento do mês quando a meta é batida. Não aparece no painel.'
+                          : ehQuantitativa && modoBonus === 'por_unidade' && sentido === 'maior_melhor'
+                            ? 'Pago por cada unidade realizada, desde a primeira. Ex.: 3 contratos × R$ 50 = R$ 150.'
+                            : 'Pago no fechamento do mês quando a meta é batida. Não aparece no painel.'
                     }
                   />
                 )}
@@ -620,7 +655,13 @@ export function MetaStepperPage() {
                       </Stack>
                       <RadioGroup
                         value={modoBonus}
-                        onChange={(_, value) => setModoBonus(value as ModoBonus)}
+                        onChange={(_, value) => {
+                          const next = value as ModoBonus
+                          setModoBonus(next)
+                          if (next === 'faixa_unidade' && faixas.length === 0) {
+                            setFaixas(TABELA_SDR_REUNIOES)
+                          }
+                        }}
                       >
                         <FormControlLabel
                           value="fixo"
@@ -636,6 +677,16 @@ export function MetaStepperPage() {
                           value="unidade"
                           control={<Radio />}
                           label="Por unidade extra: bateu o alvo e cada unidade a mais paga a mais"
+                        />
+                        <FormControlLabel
+                          value="faixa_unidade"
+                          control={<Radio />}
+                          label="Por faixas: a quantidade define a taxa, aplicada no total do mês"
+                        />
+                        <FormControlLabel
+                          value="por_unidade"
+                          control={<Radio />}
+                          label="Por unidade: cada unidade paga o valor, desde a primeira"
                         />
                       </RadioGroup>
                     </FormControl>
@@ -665,6 +716,71 @@ export function MetaStepperPage() {
                         onChange={(e) => setBonusPorUnidade(e.target.value)}
                         helperText="Somado ao bônus-base para cada unidade acima do alvo."
                       />
+                    )}
+                    {modoBonus === 'faixa_unidade' && (
+                      <Stack spacing={1.5}>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' } }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            Faixas de quantidade
+                          </Typography>
+                          <Button size="small" onClick={() => setFaixas(TABELA_SDR_REUNIOES)}>
+                            Usar tabela SDR (reuniões)
+                          </Button>
+                        </Stack>
+                        <Typography variant="body2" color="text.secondary">
+                          A maior faixa atingida define a taxa. O pagamento é realizado × R$ da faixa, sobre o total — não só o excedente.
+                        </Typography>
+                        {faixas.map((faixa, indice) => (
+                          <Stack key={`${faixa.nome}-${indice}`} direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ alignItems: { md: 'center' } }}>
+                            <TextField
+                              label="Nome"
+                              value={faixa.nome}
+                              onChange={(e) => {
+                                const copia = [...faixas]
+                                copia[indice] = { ...copia[indice], nome: e.target.value }
+                                setFaixas(copia)
+                              }}
+                              sx={{ minWidth: 0, flex: 1 }}
+                            />
+                            <TextField
+                              label="Quantidade mín."
+                              type="number"
+                              value={faixa.quantidade_min}
+                              onChange={(e) => {
+                                const copia = [...faixas]
+                                copia[indice] = { ...copia[indice], quantidade_min: Number(e.target.value) }
+                                setFaixas(copia)
+                              }}
+                              sx={{ flex: 1 }}
+                            />
+                            <TextField
+                              label="R$ por unidade"
+                              type="number"
+                              value={faixa.valor_por_unidade}
+                              onChange={(e) => {
+                                const copia = [...faixas]
+                                copia[indice] = { ...copia[indice], valor_por_unidade: Number(e.target.value) }
+                                setFaixas(copia)
+                              }}
+                              sx={{ flex: 1 }}
+                            />
+                            <IconButton
+                              aria-label="Remover faixa"
+                              onClick={() => setFaixas(faixas.filter((_, i) => i !== indice))}
+                              disabled={faixas.length <= 1}
+                            >
+                              <DeleteOutlinedIcon />
+                            </IconButton>
+                          </Stack>
+                        ))}
+                        <Button
+                          startIcon={<AddIcon />}
+                          onClick={() => setFaixas([...faixas, faixaEmBranco(faixas.length + 1)])}
+                          sx={{ alignSelf: 'flex-start' }}
+                        >
+                          Adicionar faixa
+                        </Button>
+                      </Stack>
                     )}
                   </>
                 )}
@@ -770,7 +886,7 @@ export function MetaStepperPage() {
                   <>
                     {mostrarPorPessoa && porPessoa ? (
                       <Alert severity="info">
-                        Cada pessoa lança o próprio valor. O alvo vale para cada um, e no fechamento só entra quem bater.
+                        Cada pessoa lança o próprio valor. O alvo vale para cada um. No fechamento entra quem tiver direito ao bônus da regra cadastrada.
                       </Alert>
                     ) : (
                       chartTipo === 'column' &&

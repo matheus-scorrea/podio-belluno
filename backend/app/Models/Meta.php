@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'bonus_piso_percentual',
     'bonus_teto_percentual',
     'bonus_por_unidade_extra',
+    'niveis_faixa',
     'niveis_comissao',
     'marco_por_pessoa',
     'created_by',
@@ -34,6 +35,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Meta extends Model
 {
     use HasFactory, SoftDeletes;
+
+    public const MODOS_BONUS = ['fixo', 'linear', 'unidade', 'faixa_unidade', 'por_unidade'];
 
     protected $hidden = [
         'ordem_exibicao',
@@ -47,6 +50,7 @@ class Meta extends Model
             'bonus_piso_percentual' => 'decimal:1',
             'bonus_teto_percentual' => 'decimal:1',
             'bonus_por_unidade_extra' => 'decimal:2',
+            'niveis_faixa' => 'array',
             'niveis_comissao' => 'array',
             'marco_por_pessoa' => 'boolean',
         ];
@@ -130,7 +134,12 @@ class Meta extends Model
 
         $modo = (string) ($this->modo_bonus ?: 'fixo');
 
-        return in_array($modo, ['fixo', 'linear', 'unidade'], true) ? $modo : 'fixo';
+        return in_array($modo, self::MODOS_BONUS, true) ? $modo : 'fixo';
+    }
+
+    public function bonusIndependeDoAlvo(): bool
+    {
+        return in_array($this->modoBonus(), ['faixa_unidade', 'por_unidade'], true);
     }
 
     public function atingimentoSemTeto(): bool

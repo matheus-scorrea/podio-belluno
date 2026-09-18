@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   Collapse,
   FormControl,
   Grid,
@@ -26,12 +25,14 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../auth/useAuth'
 import { EmptyState } from '../components/EmptyState'
+import { EscopoAtribuicao } from '../components/EscopoAtribuicao'
+import { BonusChip } from '../components/MetaDadoChips'
 import { FilterBar } from '../components/FilterBar'
 import { KpiCard } from '../components/KpiCard'
 import { PageHeader } from '../components/PageHeader'
 import { hideColXs, ResponsiveTable } from '../components/ResponsiveTable'
 import { AppShell } from '../layout/AppShell'
-import { competenciaLabel, escopoLabel, formatBonus, MESES } from '../lib/labels'
+import { competenciaLabel, formatBonus, MESES } from '../lib/labels'
 import { departamentosParaSelect } from '../lib/organizacao'
 import type { Departamento, FechamentoResponse } from '../types'
 
@@ -218,8 +219,8 @@ export function FechamentoPage() {
                           </TableCell>
                           <TableCell sx={hideColXs}>{pessoa.departamento ?? '—'}</TableCell>
                           <TableCell sx={hideColXs}>{pessoa.cargo ?? '—'}</TableCell>
-                          <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
-                            {formatBonus(pessoa.bonus_total)}
+                          <TableCell align="right">
+                            <BonusChip valor={pessoa.bonus_total} />
                           </TableCell>
                         </TableRow>
                         <TableRow>
@@ -240,19 +241,15 @@ export function FechamentoPage() {
                                     >
                                       <Box sx={{ minWidth: 0 }}>
                                         <Typography variant="body2">{item.titulo}</Typography>
-                                        <Stack direction="row" spacing={0.75} sx={{ mt: 0.4, alignItems: 'center' }}>
-                                          <Chip size="small" label={escopoLabel(item.tipo_escopo)} />
+                                        <Stack direction="row" spacing={0.75} sx={{ mt: 0.4, alignItems: 'center', flexWrap: 'wrap' }}>
+                                          <EscopoAtribuicao tipo={item.tipo_escopo} />
                                           <Typography variant="caption" color="text.secondary">
                                             {item.percentual}% da meta
+                                            {item.nivel ? ` · ${item.nivel}` : ''}
                                           </Typography>
                                         </Stack>
                                       </Box>
-                                      <Typography
-                                        variant="body2"
-                                        sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600, whiteSpace: 'nowrap' }}
-                                      >
-                                        {formatBonus(item.valor_bonus)}
-                                      </Typography>
+                                      <BonusChip valor={item.valor_bonus} />
                                     </Stack>
                                   ))}
                                 </Stack>

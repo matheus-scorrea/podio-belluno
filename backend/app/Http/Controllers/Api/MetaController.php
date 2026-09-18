@@ -188,7 +188,7 @@ class MetaController extends Controller
     private function normalizarModoBonus(array $data, bool $permiteExtra): array
     {
         $modo = $permiteExtra ? (($data['modo_bonus'] ?? 'fixo') ?: 'fixo') : 'fixo';
-        if (! in_array($modo, ['fixo', 'linear', 'unidade'], true)) {
+        if (! in_array($modo, Meta::MODOS_BONUS, true)) {
             $modo = 'fixo';
         }
 
@@ -197,14 +197,27 @@ class MetaController extends Controller
         if ($modo === 'linear') {
             $data['bonus_piso_percentual'] = $data['bonus_piso_percentual'] ?? 100;
             $data['bonus_por_unidade_extra'] = null;
+            $data['niveis_faixa'] = null;
         } elseif ($modo === 'unidade') {
             $data['bonus_piso_percentual'] = null;
             $data['bonus_teto_percentual'] = null;
             $data['bonus_por_unidade_extra'] = $data['bonus_por_unidade_extra'] ?? 0;
+            $data['niveis_faixa'] = null;
+        } elseif ($modo === 'por_unidade') {
+            $data['bonus_piso_percentual'] = null;
+            $data['bonus_teto_percentual'] = null;
+            $data['bonus_por_unidade_extra'] = null;
+            $data['niveis_faixa'] = null;
+        } elseif ($modo === 'faixa_unidade') {
+            $data['bonus_piso_percentual'] = null;
+            $data['bonus_teto_percentual'] = null;
+            $data['bonus_por_unidade_extra'] = null;
+            $data['valor_bonus'] = $data['valor_bonus'] ?? 0;
         } else {
             $data['bonus_piso_percentual'] = null;
             $data['bonus_teto_percentual'] = null;
             $data['bonus_por_unidade_extra'] = null;
+            $data['niveis_faixa'] = null;
         }
 
         return $data;
@@ -219,6 +232,7 @@ class MetaController extends Controller
                 'bonus_piso_percentual',
                 'bonus_teto_percentual',
                 'bonus_por_unidade_extra',
+                'niveis_faixa',
             ]);
         }
 

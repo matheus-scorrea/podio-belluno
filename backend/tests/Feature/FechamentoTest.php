@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Meta;
 use App\Models\User;
 use App\Services\ComissaoService;
+use App\Support\BonusPagamento;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -203,6 +204,76 @@ class FechamentoTest extends TestCase
             ->assertOk()
             ->assertJsonPath('total_bonus', 300)
             ->assertJsonPath('usuarios.0.itens.0.valor_bonus', 300);
+    }
+
+    public function test_faixa_unidade_paga_taxa_da_faixa_mesmo_abaixo_do_alvo_visual(): void
+    {
+        $org = $this->createOrg();
+        $meta = $this->metaIndividual($org, 0, 'Reuniões SDR');
+        $meta->update([
+            'modo_bonus' => 'faixa_unidade',
+            'niveis_faixa' => BonusPagamento::tabelaSdrReunioes(),
+        ]);
+        $this->bater($meta, 32);
+
+        $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')
+            ->assertOk()
+            ->assertJsonPath('pessoas', 1)
+            ->assertJsonPath('total_bonus', 384)
+            ->assertJsonPath('usuarios.0.itens.0.valor_bonus', 384)
+            ->assertJsonPath('usuarios.0.itens.0.nivel', 'Meta 2');
+    }
+
+    public function test_por_unidade_paga_desde_a_primeira_unidade(): void
+    {
+        $org = $this->createOrg();
+        $meta = $this->metaIndividual($org, 50, 'Contratos SDR');
+        $meta->update(['modo_bonus' => 'por_unidade']);
+        $this->bater($meta, 3);
+
+        $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')
+            ->assertOk()
+            ->assertJsonPath('pessoas', 1)
+            ->assertJsonPath('total_bonus', 150)
+            ->assertJsonPath('usuarios.0.itens.0.valor_bonus', 150);
+    }
+
+    public function test_sdr_soma_reunioes_em_faixa_e_contratos_por_unidade(): void
+    {
+        $org = $this->createOrg();
+        $reunioes = $this->metaIndividual($org, 0, 'Reuniões SDR');
+        $reunioes->update([
+            'modo_bonus' => 'faixa_unidade',
+            'niveis_faixa' => BonusPagamento::tabelaSdrReunioes(),
+        ]);
+        $this->bater($reunioes, 32);
+
+        $contratos = $this->metaIndividual($org, 50, 'Contratos SDR');
+        $contratos->update(['modo_bonus' => 'por_unidade']);
+        $this->bater($contratos, 1);
+
+        $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')
+            ->assertOk()
+            ->assertJsonPath('pessoas', 1)
+            ->assertJsonPath('total_bonus', 434)
+            ->assertJsonPath('usuarios.0.bonus_total', 434)
+            ->assertJsonCount(2, 'usuarios.0.itens');
+    }
+
+    public function test_faixa_unidade_abaixo_da_primeira_faixa_nao_entra_no_fechamento(): void
+    {
+        $org = $this->createOrg();
+        $meta = $this->metaIndividual($org, 0, 'Reuniões SDR');
+        $meta->update([
+            'modo_bonus' => 'faixa_unidade',
+            'niveis_faixa' => BonusPagamento::tabelaSdrReunioes(),
+        ]);
+        $this->bater($meta, 18);
+
+        $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')
+            ->assertOk()
+            ->assertJsonPath('pessoas', 0)
+            ->assertJsonPath('total_bonus', 0);
     }
 
     public function test_nao_lista_usuario_quando_meta_nao_foi_batida(): void

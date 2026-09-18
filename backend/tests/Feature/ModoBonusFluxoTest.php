@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Meta;
 use App\Models\User;
 use App\Services\ComissaoService;
+use App\Support\BonusPagamento;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -42,6 +43,40 @@ class ModoBonusFluxoTest extends TestCase
             ->assertJsonPath('modo_bonus', 'linear')
             ->assertJsonPath('bonus_teto_percentual', '200.0')
             ->assertJsonPath('bonus_por_unidade_extra', null);
+    }
+
+    public function test_direcao_persiste_faixa_unidade_e_por_unidade(): void
+    {
+        $org = $this->createOrg();
+
+        $faixa = $this->actingAs($org['direcao'])->postJson('/api/metas', $this->payloadQuantitativa($org, [
+            'titulo' => 'Reuniões SDR',
+            'modo_bonus' => 'faixa_unidade',
+            'niveis_faixa' => BonusPagamento::tabelaSdrReunioes(),
+            'unidade' => 'un',
+            'valor_meta' => 20,
+            'valor_bonus' => 0,
+        ]))->assertCreated();
+
+        $faixa->assertJsonPath('modo_bonus', 'faixa_unidade')
+            ->assertJsonPath('niveis_faixa.0.quantidade_min', 20)
+            ->assertJsonPath('niveis_faixa.2.valor_por_unidade', 15)
+            ->assertJsonPath('bonus_piso_percentual', null);
+
+        $this->actingAs($org['direcao'])->postJson('/api/metas', $this->payloadQuantitativa($org, [
+            'titulo' => 'Contratos SDR',
+            'modo_bonus' => 'por_unidade',
+            'valor_bonus' => 50,
+            'unidade' => 'un',
+            'valor_meta' => 1,
+        ]))->assertCreated()
+            ->assertJsonPath('modo_bonus', 'por_unidade')
+            ->assertJsonPath('valor_bonus', '50.00')
+            ->assertJsonPath('niveis_faixa', null);
+
+        $this->actingAs($org['direcao'])->postJson('/api/metas', $this->payloadQuantitativa($org, [
+            'modo_bonus' => 'faixa_unidade',
+        ]))->assertUnprocessable()->assertJsonValidationErrors('niveis_faixa');
     }
 
     public function test_marco_e_comissao_nao_aceitam_bonus_proporcional(): void
@@ -284,6 +319,45 @@ class ModoBonusFluxoTest extends TestCase
         $this->assertEquals(0, $itens['Pendente linear']['valor_bonus']);
     }
 
+    public function test_meus_resultados_reflete_faixa_unidade_e_por_unidade(): void
+    {
+        $org = $this->createOrg();
+
+        $reunioes = $this->metaIndividual($org, 0, 'Reuniões SDR');
+        $reunioes->update([
+            'modo_bonus' => 'faixa_unidade',
+            'niveis_faixa' => BonusPagamento::tabelaSdrReunioes(),
+        ]);
+        $this->bater($reunioes, 32);
+
+        $contratos = $this->metaIndividual($org, 50, 'Contratos SDR');
+        $contratos->update(['modo_bonus' => 'por_unidade']);
+        $this->bater($contratos, 2);
+
+        $abaixo = $this->metaIndividual($org, 0, 'Reuniões abaixo');
+        $abaixo->update([
+            'modo_bonus' => 'faixa_unidade',
+            'niveis_faixa' => BonusPagamento::tabelaSdrReunioes(),
+        ]);
+        $this->bater($abaixo, 18);
+
+        $response = $this->actingAs($org['colaborador'])->getJson('/api/me/resultados?ano=2026');
+        $itens = collect($response->json('meses.0.itens'))->keyBy('titulo');
+
+        $response->assertOk()
+            ->assertJsonPath('kpis.total_bonus', 484);
+
+        $this->assertTrue($itens['Reuniões SDR']['bateu']);
+        $this->assertEquals(384, $itens['Reuniões SDR']['valor_bonus']);
+        $this->assertSame('Meta 2', $itens['Reuniões SDR']['nivel']);
+
+        $this->assertTrue($itens['Contratos SDR']['bateu']);
+        $this->assertEquals(100, $itens['Contratos SDR']['valor_bonus']);
+
+        $this->assertFalse($itens['Reuniões abaixo']['bateu']);
+        $this->assertEquals(0, $itens['Reuniões abaixo']['valor_bonus']);
+    }
+
     public function test_colaborador_nao_ve_configuracao_de_bonus_no_detalhe(): void
     {
         $org = $this->createOrg();
@@ -300,7 +374,8 @@ class ModoBonusFluxoTest extends TestCase
             ->assertJsonMissingPath('modo_bonus')
             ->assertJsonMissingPath('bonus_piso_percentual')
             ->assertJsonMissingPath('bonus_teto_percentual')
-            ->assertJsonMissingPath('bonus_por_unidade_extra');
+            ->assertJsonMissingPath('bonus_por_unidade_extra')
+            ->assertJsonMissingPath('niveis_faixa');
     }
 
     /**

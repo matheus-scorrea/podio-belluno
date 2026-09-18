@@ -1,7 +1,7 @@
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import { Box, Chip, Paper, Stack, Tooltip, Typography } from '@mui/material'
 import { renderMetaChart } from '../charts/chartFactory'
-import { escopoLabel } from '../lib/labels'
+import { EscopoAtribuicao } from './EscopoAtribuicao'
 import { statusColor, statusLabel } from '../theme/status'
 import type { DashboardMeta } from '../types'
 
@@ -37,7 +37,7 @@ export function MetaCard({ meta, compact = false }: { meta: DashboardMeta; compa
                 : `${meta.valor_realizado} / ${meta.valor_meta} ${meta.unidade}`}
           </Typography>
         </Box>
-        <Stack spacing={0.5} sx={{ alignItems: 'flex-end', flexShrink: 0 }}>
+        <Stack spacing={0.5} sx={{ alignItems: 'flex-end', flexShrink: 0, maxWidth: { xs: '48%', sm: 240 }, minWidth: 0 }}>
           <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
             {meta.somente_leitura && (
               <Tooltip title="Somente leitura — você não registra esta meta">
@@ -50,7 +50,13 @@ export function MetaCard({ meta, compact = false }: { meta: DashboardMeta; compa
               sx={{ bgcolor: `${statusColor(meta.status)}18`, color: statusColor(meta.status) }}
             />
           </Stack>
-          <Chip size="small" variant="outlined" label={escopoLabel(meta.tipo_escopo)} />
+          <EscopoAtribuicao
+            tipo={meta.tipo_escopo}
+            departamentos={meta.departamentos}
+            cargos={meta.cargos}
+            usuarios={meta.usuarios}
+            align="end"
+          />
         </Stack>
       </Stack>
       <Box sx={{ mt: 1, flex: 1 }}>

@@ -167,13 +167,14 @@ class FechamentoService
             $percentual = $meta->isMarco()
                 ? ($valor >= 1 ? 100.0 : 0.0)
                 : IndicadorStatus::percentual($valor, $alvo, $meta->sentido, ! $meta->atingimentoSemTeto());
-            $bateu = $percentual + 0.00001 >= $meta->pisoBonus();
+            $bonus = $this->avaliarBonus($meta, $valor, $alvo, $percentual);
 
             return [
                 ...$base,
                 'percentual' => $percentual,
-                'bateu' => $bateu,
-                'valor_bonus' => $bateu ? BonusPagamento::calcular($meta, $valor, $alvo, $percentual) : 0.0,
+                'bateu' => $bonus['bateu'],
+                'valor_bonus' => $bonus['valor'],
+                'nivel' => $bonus['nivel'],
             ];
         }
 
@@ -197,13 +198,39 @@ class FechamentoService
             $meta,
             collect([$user->id => $user]),
         )->contains(fn (User $u) => (int) $u->id === (int) $user->id);
-        $bateu = $eBeneficiario && $percentual + 0.00001 >= $meta->pisoBonus();
+        $bonus = $this->avaliarBonus($meta, $realizado, $alvo, $percentual);
 
         return [
             ...$base,
             'percentual' => $percentual,
+            'bateu' => $eBeneficiario && $bonus['bateu'],
+            'valor_bonus' => $eBeneficiario ? $bonus['valor'] : 0.0,
+            'nivel' => $eBeneficiario ? $bonus['nivel'] : null,
+        ];
+    }
+
+    /**
+     * @return array{valor: float, bateu: bool, nivel: string|null}
+     */
+    private function avaliarBonus(Meta $meta, float $realizado, float $alvo, float $percentual): array
+    {
+        $valor = BonusPagamento::calcular($meta, $realizado, $alvo, $percentual);
+        $nivel = BonusPagamento::nivelFaixa($meta, $realizado);
+
+        if ($meta->bonusIndependeDoAlvo()) {
+            return [
+                'valor' => $valor,
+                'bateu' => $valor > 0.00001,
+                'nivel' => $nivel,
+            ];
+        }
+
+        $bateu = $percentual + 0.00001 >= $meta->pisoBonus();
+
+        return [
+            'valor' => $bateu ? $valor : 0.0,
             'bateu' => $bateu,
-            'valor_bonus' => $bateu ? BonusPagamento::calcular($meta, $realizado, $alvo, $percentual) : 0.0,
+            'nivel' => null,
         ];
     }
 

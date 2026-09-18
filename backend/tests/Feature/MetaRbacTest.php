@@ -1017,4 +1017,55 @@ class MetaRbacTest extends TestCase
         $this->assertSame([$nova->id, $antiga->id], $ids->pluck('id')->all());
         $this->assertArrayNotHasKey('ordem_exibicao', $ids->first());
     }
+
+    public function test_listagem_traz_nomes_de_setor_cargo_e_usuario(): void
+    {
+        $org = $this->createOrg();
+
+        $setor = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'departamento',
+            'titulo' => 'Meta setor',
+        ]);
+        $setor->departamentos()->sync([$org['dept']->id]);
+
+        $cargo = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'cargo',
+            'titulo' => 'Meta cargo',
+        ]);
+        $cargo->cargos()->sync([$org['comumCargo']->id]);
+
+        $pessoa = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'individual',
+            'titulo' => 'Meta pessoa',
+        ]);
+        $pessoa->usuarios()->sync([$org['colaborador']->id]);
+
+        Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'global',
+            'titulo' => 'Meta empresa',
+        ]);
+
+        $lista = collect($this->actingAs($org['direcao'])->getJson('/api/metas?ano=2026&mes=9')->json());
+
+        $this->assertSame(
+            ['TI'],
+            collect($lista->firstWhere('titulo', 'Meta setor')['departamentos'])->pluck('nome')->all(),
+        );
+        $this->assertSame(
+            ['Analista de TI'],
+            collect($lista->firstWhere('titulo', 'Meta cargo')['cargos'])->pluck('nome')->all(),
+        );
+        $this->assertSame(
+            [$org['colaborador']->name],
+            collect($lista->firstWhere('titulo', 'Meta pessoa')['usuarios'])->pluck('name')->all(),
+        );
+        $this->assertSame(
+            [],
+            collect($lista->firstWhere('titulo', 'Meta empresa')['departamentos'] ?? [])->all(),
+        );
+    }
 }

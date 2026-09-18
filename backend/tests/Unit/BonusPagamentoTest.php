@@ -85,6 +85,33 @@ class BonusPagamentoTest extends TestCase
         $this->assertEquals(300, BonusPagamento::calcular($meta, 14, 10, 140));
     }
 
+    public function test_faixa_unidade_aplica_taxa_da_faixa_no_total(): void
+    {
+        $meta = $this->meta([
+            'modo_bonus' => 'faixa_unidade',
+            'niveis_faixa' => BonusPagamento::tabelaSdrReunioes(),
+        ]);
+
+        $this->assertEquals(0, BonusPagamento::calcular($meta, 18, 20, 90));
+        $this->assertEquals(220, BonusPagamento::calcular($meta, 22, 20, 110));
+        $this->assertEquals(384, BonusPagamento::calcular($meta, 32, 20, 160));
+        $this->assertEquals(570, BonusPagamento::calcular($meta, 38, 20, 190));
+        $this->assertSame('Meta 2', BonusPagamento::nivelFaixa($meta, 32));
+        $this->assertNull(BonusPagamento::nivelFaixa($meta, 18));
+    }
+
+    public function test_por_unidade_paga_desde_a_primeira(): void
+    {
+        $meta = $this->meta([
+            'modo_bonus' => 'por_unidade',
+            'valor_bonus' => 50,
+        ]);
+
+        $this->assertEquals(0, BonusPagamento::calcular($meta, 0, 10, 0));
+        $this->assertEquals(50, BonusPagamento::calcular($meta, 1, 10, 10));
+        $this->assertEquals(150, BonusPagamento::calcular($meta, 3, 10, 30));
+    }
+
     /**
      * @param  array<string, mixed>  $attrs
      */

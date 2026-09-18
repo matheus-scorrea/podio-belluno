@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Meta;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -30,10 +31,14 @@ class StoreMetaRequest extends FormRequest
             'tipo_escopo' => ['required', Rule::in(['individual', 'cargo', 'departamento', 'global'])],
             'valor_meta' => ['required', 'numeric', 'min:0'],
             'valor_bonus' => ['nullable', 'numeric', 'min:0'],
-            'modo_bonus' => ['nullable', Rule::in(['fixo', 'linear', 'unidade'])],
+            'modo_bonus' => ['nullable', Rule::in(Meta::MODOS_BONUS)],
             'bonus_piso_percentual' => ['nullable', 'numeric', 'min:0', 'max:1000'],
             'bonus_teto_percentual' => ['nullable', 'numeric', 'min:0', 'max:10000'],
             'bonus_por_unidade_extra' => ['nullable', 'numeric', 'min:0'],
+            'niveis_faixa' => ['nullable', 'array', 'required_if:modo_bonus,faixa_unidade', 'min:1'],
+            'niveis_faixa.*.nome' => ['required_with:niveis_faixa', 'string', 'max:40'],
+            'niveis_faixa.*.quantidade_min' => ['required_with:niveis_faixa', 'numeric', 'min:0'],
+            'niveis_faixa.*.valor_por_unidade' => ['required_with:niveis_faixa', 'numeric', 'min:0'],
             'unidade' => ['required', Rule::in(['%', 'R$', 'un', 'marco'])],
             'sentido' => ['required', Rule::in(['maior_melhor', 'menor_melhor'])],
             'chart_tipo' => ['required', Rule::in(['gauge', 'progress_bar', 'line', 'column', 'marco', 'comissao'])],

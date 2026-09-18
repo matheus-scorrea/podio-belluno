@@ -3,7 +3,6 @@ import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
 import AddIcon from '@mui/icons-material/Add'
 import {
   Button,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -27,12 +26,14 @@ import { useMemo, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../auth/useAuth'
+import { AlvoChip, BonusChip, TipoIndicadorChip } from '../components/MetaDadoChips'
 import { EmptyState } from '../components/EmptyState'
+import { EscopoAtribuicao } from '../components/EscopoAtribuicao'
 import { FilterBar } from '../components/FilterBar'
 import { PageHeader } from '../components/PageHeader'
 import { hideColXs, ResponsiveTable } from '../components/ResponsiveTable'
 import { AppShell } from '../layout/AppShell'
-import { chartLabel, competenciaLabel, escopoLabel, formatBonus, MESES, TIPOS_ESCOPO } from '../lib/labels'
+import { bonusCadastroLabel, competenciaLabel, escopoLabel, MESES, TIPOS_ESCOPO } from '../lib/labels'
 import { departamentosParaSelect } from '../lib/organizacao'
 import type { Departamento, TipoEscopo } from '../types'
 
@@ -47,6 +48,10 @@ type MetaRow = {
   valor_meta: number
   competencias_count?: number
   valor_bonus?: number | string
+  modo_bonus?: string
+  departamentos?: { id: number; nome: string }[]
+  cargos?: { id: number; nome: string }[]
+  usuarios?: { id: number; name: string }[]
 }
 
 export function MetasListPage() {
@@ -209,14 +214,26 @@ export function MetasListPage() {
                       {m.competencias_count && m.competencias_count > 1 ? ` · ${m.competencias_count} meses` : ''}
                     </Typography>
                   </TableCell>
+                  <TableCell sx={{ maxWidth: { xs: 220, sm: 340 } }}>
+                    <EscopoAtribuicao
+                      tipo={m.tipo_escopo}
+                      departamentos={m.departamentos}
+                      cargos={m.cargos}
+                      usuarios={m.usuarios}
+                    />
+                  </TableCell>
+                  <TableCell sx={hideColXs}>
+                    <TipoIndicadorChip tipo={m.chart_tipo} />
+                  </TableCell>
                   <TableCell>
-                    <Chip size="small" label={escopoLabel(m.tipo_escopo)} />
+                    <AlvoChip tipo={m.chart_tipo} valor={m.valor_meta} unidade={m.unidade} />
                   </TableCell>
-                  <TableCell sx={hideColXs}>{chartLabel(m.chart_tipo)}</TableCell>
-                  <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {m.chart_tipo === 'marco' ? 'Feito / pendente' : m.chart_tipo === 'comissao' ? 'Gatilhos de comissão' : `${m.valor_meta} ${m.unidade}`}
+                  <TableCell sx={hideColXs}>
+                    <BonusChip
+                      valor={m.valor_bonus}
+                      label={podeEditar ? bonusCadastroLabel(m) : undefined}
+                    />
                   </TableCell>
-                  <TableCell sx={{ fontVariantNumeric: 'tabular-nums', ...hideColXs }}>{formatBonus(m.valor_bonus)}</TableCell>
                   {podeEditar && (
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                       <Tooltip title="Editar">

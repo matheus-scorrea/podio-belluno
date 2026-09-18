@@ -1,6 +1,6 @@
 export type Perfil = 'direcao' | 'lider' | 'colaborador'
 export type ChartTipo = 'gauge' | 'progress_bar' | 'line' | 'column' | 'marco' | 'comissao'
-export type ModoBonus = 'fixo' | 'linear' | 'unidade'
+export type ModoBonus = 'fixo' | 'linear' | 'unidade' | 'faixa_unidade' | 'por_unidade'
 export type StatusMeta = 'concluida' | 'esperado' | 'atencao' | 'abaixo'
 export type TipoEscopo = 'individual' | 'cargo' | 'departamento' | 'global'
 export type Sentido = 'maior_melhor' | 'menor_melhor'
@@ -49,6 +49,12 @@ export type NivelComissao = {
   adesao_min: number
   percentual: number
   premio: number
+}
+
+export type NivelFaixa = {
+  nome: string
+  quantidade_min: number
+  valor_por_unidade: number
 }
 
 export type ComissaoVendedor = {
@@ -165,6 +171,7 @@ export type FechamentoItem = {
   tipo_escopo: TipoEscopo
   percentual: number
   valor_bonus: number
+  nivel?: string | null
 }
 
 export type FechamentoUsuario = {
@@ -245,6 +252,7 @@ export type MetaDetail = {
   sentido: Sentido
   chart_tipo: ChartTipo
   chart_cor: string
+  niveis_faixa?: NivelFaixa[] | null
   niveis_comissao?: NivelComissao[] | null
   marco_por_pessoa?: boolean | 0 | 1
   usuarios: AuthUser[]

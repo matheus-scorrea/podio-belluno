@@ -27,6 +27,7 @@ class MetaFactory extends Factory
             'bonus_piso_percentual' => null,
             'bonus_teto_percentual' => null,
             'bonus_por_unidade_extra' => null,
+            'niveis_faixa' => null,
             'marco_por_pessoa' => false,
             'created_by' => User::factory()->direcao(),
             'ativo' => true,
