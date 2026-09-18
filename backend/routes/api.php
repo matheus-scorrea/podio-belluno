@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\DepartamentoController;
 use App\Http\Controllers\Api\FechamentoController;
 use App\Http\Controllers\Api\LancamentoController;
 use App\Http\Controllers\Api\MetaController;
+use App\Http\Controllers\Api\ResultadosController;
 use App\Http\Controllers\Api\UsuarioController;
 use Illuminate\Support\Facades\Route;
 
@@ -29,6 +30,7 @@ Route::middleware(['auth:sanctum', 'usuario.ativo'])->group(function () {
         Route::get('/metas/{meta}/lancamentos', [LancamentoController::class, 'index']);
         Route::post('/metas/{meta}/lancamentos', [LancamentoController::class, 'store']);
         Route::get('/fechamento', [FechamentoController::class, 'show']);
+        Route::get('/me/resultados', [ResultadosController::class, 'show']);
 
         Route::middleware('direcao')->group(function () {
             Route::apiResource('departamentos', DepartamentoController::class)->except(['index']);

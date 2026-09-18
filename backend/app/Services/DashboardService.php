@@ -168,7 +168,7 @@ class DashboardService
             });
 
             $valor = (float) ($ultimo?->valor_realizado ?? 0);
-            $percentual = IndicadorStatus::percentual($valor, $alvo, $meta->sentido);
+            $percentual = IndicadorStatus::percentual($valor, $alvo, $meta->sentido, ! $meta->atingimentoSemTeto());
 
             return [
                 'label' => $grao['label'],

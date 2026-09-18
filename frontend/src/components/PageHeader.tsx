@@ -46,7 +46,15 @@ export function PageHeader({ title, subtitle, actions, backTo }: Props) {
           )}
         </Box>
         {actions && (
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              flexWrap: 'wrap',
+              width: { xs: '100%', sm: 'auto' },
+              '& > *': { width: { xs: '100%', sm: 'auto' } },
+            }}
+          >
             {actions}
           </Stack>
         )}

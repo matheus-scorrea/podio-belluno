@@ -133,6 +133,78 @@ class FechamentoTest extends TestCase
             ->assertJsonPath('usuarios.0.itens.0.valor_bonus', 350.5);
     }
 
+    public function test_linear_paga_proporcional_acima_do_alvo(): void
+    {
+        $org = $this->createOrg();
+        $meta = $this->metaIndividual($org, 200);
+        $meta->update([
+            'modo_bonus' => 'linear',
+            'bonus_piso_percentual' => 100,
+        ]);
+        $this->bater($meta, 150);
+
+        $response = $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9');
+
+        $response->assertOk()
+            ->assertJsonPath('pessoas', 1)
+            ->assertJsonPath('total_bonus', 300)
+            ->assertJsonPath('usuarios.0.itens.0.percentual', 150)
+            ->assertJsonPath('usuarios.0.itens.0.valor_bonus', 300);
+    }
+
+    public function test_linear_nao_paga_abaixo_do_piso(): void
+    {
+        $org = $this->createOrg();
+        $meta = $this->metaIndividual($org, 200);
+        $meta->update([
+            'modo_bonus' => 'linear',
+            'bonus_piso_percentual' => 80,
+        ]);
+        $this->bater($meta, 70);
+
+        $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')
+            ->assertOk()
+            ->assertJsonPath('pessoas', 0)
+            ->assertJsonPath('total_bonus', 0);
+    }
+
+    public function test_linear_respeita_teto_do_pagamento(): void
+    {
+        $org = $this->createOrg();
+        $meta = $this->metaIndividual($org, 200);
+        $meta->update([
+            'modo_bonus' => 'linear',
+            'bonus_piso_percentual' => 100,
+            'bonus_teto_percentual' => 150,
+        ]);
+        $this->bater($meta, 200);
+
+        $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')
+            ->assertOk()
+            ->assertJsonPath('total_bonus', 300)
+            ->assertJsonPath('usuarios.0.itens.0.percentual', 200);
+    }
+
+    public function test_unidade_paga_extra_por_unidade_acima_do_alvo(): void
+    {
+        $org = $this->createOrg();
+        $meta = $this->metaIndividual($org, 200);
+        $meta->update([
+            'modo_bonus' => 'unidade',
+            'bonus_por_unidade_extra' => 25,
+        ]);
+        $meta->competencias()->where('ano', 2026)->where('mes', 9)->update([
+            'valor_meta' => 10,
+            'valor_realizado' => 14,
+        ]);
+        $meta->unsetRelation('competencias');
+
+        $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')
+            ->assertOk()
+            ->assertJsonPath('total_bonus', 300)
+            ->assertJsonPath('usuarios.0.itens.0.valor_bonus', 300);
+    }
+
     public function test_nao_lista_usuario_quando_meta_nao_foi_batida(): void
     {
         $org = $this->createOrg();

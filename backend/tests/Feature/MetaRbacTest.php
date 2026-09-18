@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Cargo;
 use App\Models\Meta;
 use App\Models\User;
+use App\Support\MetasMarco;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -86,7 +87,8 @@ class MetaRbacTest extends TestCase
 
         $this->actingAs($org['lider'])->getJson("/api/metas/{$id}?ano=2026&mes=9")
             ->assertOk()
-            ->assertJsonMissingPath('valor_bonus');
+            ->assertJsonMissingPath('valor_bonus')
+            ->assertJsonMissingPath('modo_bonus');
 
         $this->actingAs($org['direcao'])->getJson("/api/metas/{$id}?ano=2026&mes=9")
             ->assertOk()
@@ -96,6 +98,28 @@ class MetaRbacTest extends TestCase
             ->firstWhere('id', $id);
         $this->assertIsArray($listaDirecao);
         $this->assertArrayHasKey('valor_bonus', $listaDirecao);
+    }
+
+    public function test_direcao_persiste_modo_bonus_linear(): void
+    {
+        $org = $this->createOrg();
+
+        $this->actingAs($org['direcao'])->postJson('/api/metas', [
+            'titulo' => 'Reuniões ilimitadas',
+            'ano' => 2026,
+            'mes' => 9,
+            'tipo_escopo' => 'global',
+            'valor_meta' => 10,
+            'valor_bonus' => 200,
+            'modo_bonus' => 'linear',
+            'bonus_piso_percentual' => 100,
+            'unidade' => 'un',
+            'sentido' => 'maior_melhor',
+            'chart_tipo' => 'progress_bar',
+            'chart_cor' => '#00A8E8',
+        ])->assertCreated()
+            ->assertJsonPath('modo_bonus', 'linear')
+            ->assertJsonPath('bonus_piso_percentual', '100.0');
     }
 
     public function test_senha_nova_exige_confirmacao_e_complexidade(): void
@@ -729,7 +753,7 @@ class MetaRbacTest extends TestCase
             'mes' => 10,
         ])->assertOk();
 
-        $this->assertSame(1, \App\Support\MetasMarco::converterCatalogo());
+        $this->assertSame(1, MetasMarco::converterCatalogo());
 
         $meta->refresh();
         $this->assertTrue($meta->isMarco());

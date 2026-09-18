@@ -163,16 +163,48 @@ class MetaController extends Controller
             $data['valor_meta'] = 1;
             $data['niveis_comissao'] = null;
             $data['marco_por_pessoa'] = $porPessoa;
+            $data = $this->normalizarModoBonus($data, false);
         } elseif (($data['chart_tipo'] ?? '') === 'comissao') {
             $data['unidade'] = 'R$';
             $data['sentido'] = 'maior_melhor';
             $data['agregacao'] = 'soma';
             $data['valor_meta'] = app(ComissaoService::class)->maiorVendaMin($data['niveis_comissao'] ?? []);
             $data['marco_por_pessoa'] = false;
+            $data = $this->normalizarModoBonus($data, false);
         } else {
             $data['agregacao'] = $porPessoa || ($data['unidade'] ?? '') === '%' ? 'media' : 'soma';
             $data['niveis_comissao'] = null;
             $data['marco_por_pessoa'] = $porPessoa;
+            $data = $this->normalizarModoBonus($data, ($data['sentido'] ?? '') !== 'menor_melhor');
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function normalizarModoBonus(array $data, bool $permiteExtra): array
+    {
+        $modo = $permiteExtra ? (($data['modo_bonus'] ?? 'fixo') ?: 'fixo') : 'fixo';
+        if (! in_array($modo, ['fixo', 'linear', 'unidade'], true)) {
+            $modo = 'fixo';
+        }
+
+        $data['modo_bonus'] = $modo;
+
+        if ($modo === 'linear') {
+            $data['bonus_piso_percentual'] = $data['bonus_piso_percentual'] ?? 100;
+            $data['bonus_por_unidade_extra'] = null;
+        } elseif ($modo === 'unidade') {
+            $data['bonus_piso_percentual'] = null;
+            $data['bonus_teto_percentual'] = null;
+            $data['bonus_por_unidade_extra'] = $data['bonus_por_unidade_extra'] ?? 0;
+        } else {
+            $data['bonus_piso_percentual'] = null;
+            $data['bonus_teto_percentual'] = null;
+            $data['bonus_por_unidade_extra'] = null;
         }
 
         return $data;
@@ -181,7 +213,13 @@ class MetaController extends Controller
     private function ocultarBonusSeNecessario(Request $request, Meta $meta): Meta
     {
         if (! $request->user()?->is_direcao) {
-            $meta->makeHidden(['valor_bonus']);
+            $meta->makeHidden([
+                'valor_bonus',
+                'modo_bonus',
+                'bonus_piso_percentual',
+                'bonus_teto_percentual',
+                'bonus_por_unidade_extra',
+            ]);
         }
 
         return $meta;

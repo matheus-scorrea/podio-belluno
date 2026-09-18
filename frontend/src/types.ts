@@ -1,5 +1,6 @@
 export type Perfil = 'direcao' | 'lider' | 'colaborador'
 export type ChartTipo = 'gauge' | 'progress_bar' | 'line' | 'column' | 'marco' | 'comissao'
+export type ModoBonus = 'fixo' | 'linear' | 'unidade'
 export type StatusMeta = 'concluida' | 'esperado' | 'atencao' | 'abaixo'
 export type TipoEscopo = 'individual' | 'cargo' | 'departamento' | 'global'
 export type Sentido = 'maior_melhor' | 'menor_melhor'
@@ -185,6 +186,40 @@ export type FechamentoResponse = {
   usuarios: FechamentoUsuario[]
 }
 
+export type MeusResultadosItem = {
+  meta_id: number
+  titulo: string
+  tipo_escopo: TipoEscopo
+  percentual: number
+  bateu: boolean
+  valor_bonus: number
+  nivel?: string | null
+}
+
+export type MeusResultadosMes = {
+  mes: number
+  departamento: string | null
+  cargo: string | null
+  bonus_total: number
+  batidas: number
+  total_metas: number
+  itens: MeusResultadosItem[]
+}
+
+export type MeusResultadosKpis = {
+  meses_com_meta: number
+  metas: number
+  batidas: number
+  desempenho_medio: number
+  total_bonus: number
+}
+
+export type MeusResultadosResponse = {
+  ano: number
+  kpis: MeusResultadosKpis
+  meses: MeusResultadosMes[]
+}
+
 export type MetaCompetencia = {
   id: number
   ano: number
@@ -202,6 +237,10 @@ export type MetaDetail = {
   tipo_escopo: TipoEscopo
   valor_meta: number
   valor_bonus?: number
+  modo_bonus?: ModoBonus
+  bonus_piso_percentual?: number | string | null
+  bonus_teto_percentual?: number | string | null
+  bonus_por_unidade_extra?: number | string | null
   unidade: string
   sentido: Sentido
   chart_tipo: ChartTipo

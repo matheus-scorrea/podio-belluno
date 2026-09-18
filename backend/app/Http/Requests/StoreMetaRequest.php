@@ -30,6 +30,10 @@ class StoreMetaRequest extends FormRequest
             'tipo_escopo' => ['required', Rule::in(['individual', 'cargo', 'departamento', 'global'])],
             'valor_meta' => ['required', 'numeric', 'min:0'],
             'valor_bonus' => ['nullable', 'numeric', 'min:0'],
+            'modo_bonus' => ['nullable', Rule::in(['fixo', 'linear', 'unidade'])],
+            'bonus_piso_percentual' => ['nullable', 'numeric', 'min:0', 'max:1000'],
+            'bonus_teto_percentual' => ['nullable', 'numeric', 'min:0', 'max:10000'],
+            'bonus_por_unidade_extra' => ['nullable', 'numeric', 'min:0'],
             'unidade' => ['required', Rule::in(['%', 'R$', 'un', 'marco'])],
             'sentido' => ['required', Rule::in(['maior_melhor', 'menor_melhor'])],
             'chart_tipo' => ['required', Rule::in(['gauge', 'progress_bar', 'line', 'column', 'marco', 'comissao'])],
@@ -57,6 +61,25 @@ class StoreMetaRequest extends FormRequest
                 if ($this->input('chart_tipo') === 'comissao'
                     && ! in_array($this->input('tipo_escopo'), ['individual', 'cargo'], true)) {
                     $validator->errors()->add('tipo_escopo', 'Comissão de vendedor se aplica a pessoas ou cargos.');
+                }
+
+                $modo = $this->input('modo_bonus', 'fixo') ?: 'fixo';
+                $quantitativa = ! in_array($this->input('chart_tipo'), ['marco', 'comissao'], true);
+
+                if (! $quantitativa && $modo !== 'fixo') {
+                    $validator->errors()->add('modo_bonus', 'Marco e comissão usam o bônus fixo.');
+                }
+
+                if ($quantitativa && $modo !== 'fixo' && $this->input('sentido') === 'menor_melhor') {
+                    $validator->errors()->add('modo_bonus', 'Bônus acima do piso só se aplica quando maior é melhor.');
+                }
+
+                if ($modo === 'linear') {
+                    $piso = $this->input('bonus_piso_percentual');
+                    $teto = $this->input('bonus_teto_percentual');
+                    if ($teto !== null && $teto !== '' && $piso !== null && $piso !== '' && (float) $teto < (float) $piso) {
+                        $validator->errors()->add('bonus_teto_percentual', 'O teto do bônus não pode ser menor que o piso.');
+                    }
                 }
             },
         ];

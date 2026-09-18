@@ -14,10 +14,8 @@ import {
   Select,
   Skeleton,
   Stack,
-  Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   Typography,
@@ -31,6 +29,7 @@ import { EmptyState } from '../components/EmptyState'
 import { FilterBar } from '../components/FilterBar'
 import { KpiCard } from '../components/KpiCard'
 import { PageHeader } from '../components/PageHeader'
+import { hideColXs, ResponsiveTable } from '../components/ResponsiveTable'
 import { AppShell } from '../layout/AppShell'
 import { competenciaLabel, escopoLabel, formatBonus, MESES } from '../lib/labels'
 import { departamentosParaSelect } from '../lib/organizacao'
@@ -74,7 +73,7 @@ export function FechamentoPage() {
         subtitle="Quem bateu meta no seu recorte nesta competência e quanto recebe de bônus."
       />
       <FilterBar>
-        <FormControl size="small" sx={{ minWidth: 220 }}>
+        <FormControl size="small">
           <InputLabel>Competência</InputLabel>
           <Select
             label="Competência"
@@ -94,7 +93,7 @@ export function FechamentoPage() {
           </Select>
         </FormControl>
         {user?.is_direcao && (
-          <FormControl size="small" sx={{ minWidth: 200 }}>
+          <FormControl size="small">
             <InputLabel>Setor</InputLabel>
             <Select
               label="Setor"
@@ -172,18 +171,17 @@ export function FechamentoPage() {
             </Paper>
           ) : (
           <Paper sx={{ overflow: 'hidden' }}>
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell width={48} />
-                    <TableCell>Pessoa</TableCell>
-                    <TableCell>Setor</TableCell>
-                    <TableCell>Cargo</TableCell>
-                    <TableCell align="right">Bônus a receber</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
+            <ResponsiveTable minWidth={360}>
+              <TableHead>
+                <TableRow>
+                  <TableCell width={48} />
+                  <TableCell>Pessoa</TableCell>
+                  <TableCell sx={hideColXs}>Setor</TableCell>
+                  <TableCell sx={hideColXs}>Cargo</TableCell>
+                  <TableCell align="right">Bônus a receber</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                   {(data?.usuarios ?? []).map((pessoa) => {
                     const aberto = abertos.includes(pessoa.id)
                     return (
@@ -218,8 +216,8 @@ export function FechamentoPage() {
                               {pessoa.itens.length} {pessoa.itens.length === 1 ? 'meta batida' : 'metas batidas'}
                             </Typography>
                           </TableCell>
-                          <TableCell>{pessoa.departamento ?? '—'}</TableCell>
-                          <TableCell>{pessoa.cargo ?? '—'}</TableCell>
+                          <TableCell sx={hideColXs}>{pessoa.departamento ?? '—'}</TableCell>
+                          <TableCell sx={hideColXs}>{pessoa.cargo ?? '—'}</TableCell>
                           <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
                             {formatBonus(pessoa.bonus_total)}
                           </TableCell>
@@ -266,8 +264,7 @@ export function FechamentoPage() {
                     )
                   })}
                 </TableBody>
-              </Table>
-            </TableContainer>
+            </ResponsiveTable>
           </Paper>
           )}
         </>

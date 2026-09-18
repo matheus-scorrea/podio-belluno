@@ -6,6 +6,7 @@ import { DepartamentoFormPage } from './pages/DepartamentoFormPage'
 import { DepartamentosPage } from './pages/DepartamentosPage'
 import { FechamentoPage } from './pages/FechamentoPage'
 import { LoginPage } from './pages/LoginPage'
+import { MeusResultadosPage } from './pages/MeusResultadosPage'
 import { MetasListPage } from './pages/MetasListPage'
 import { MetaStepperPage } from './pages/MetaStepperPage'
 import { PrimeiroAcessoPage } from './pages/PrimeiroAcessoPage'
@@ -19,6 +20,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/primeiro-acesso" element={<PrimeiroAcessoPage />} />
         <Route path="/conta" element={<ContaPage />} />
+        <Route path="/meus-resultados" element={<MeusResultadosPage />} />
         <Route path="/" element={<DashboardPage />} />
         <Route path="/metas" element={<MetasListPage />} />
         <Route path="/metas/nova" element={<MetaStepperPage />} />

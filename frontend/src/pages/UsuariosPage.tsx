@@ -15,10 +15,8 @@ import {
   IconButton,
   Paper,
   Skeleton,
-  Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   Tooltip,
@@ -32,6 +30,7 @@ import { useAuth } from '../auth/useAuth'
 import { ConviteAcessoDialog } from '../components/ConviteAcessoDialog'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
+import { hideColXs, ResponsiveTable } from '../components/ResponsiveTable'
 import { AppShell } from '../layout/AppShell'
 import type { AuthUser, ConviteAcesso } from '../types'
 
@@ -102,19 +101,18 @@ export function UsuariosPage() {
         }
       />
       <Paper sx={{ overflow: 'hidden' }}>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Nome</TableCell>
-                <TableCell>E-mail</TableCell>
-                <TableCell>Perfil</TableCell>
-                <TableCell>Setor</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Ações</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
+        <ResponsiveTable>
+          <TableHead>
+            <TableRow>
+              <TableCell>Nome</TableCell>
+              <TableCell sx={hideColXs}>E-mail</TableCell>
+              <TableCell>Perfil</TableCell>
+              <TableCell sx={hideColXs}>Setor</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell align="right">Ações</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
               {isLoading &&
                 Array.from({ length: 4 }).map((_, idx) => (
                   <TableRow key={`sk-${idx}`}>
@@ -128,11 +126,11 @@ export function UsuariosPage() {
                 return (
                   <TableRow key={u.id} hover sx={{ opacity: u.ativo ? 1 : 0.7 }}>
                     <TableCell sx={{ fontWeight: 600 }}>{u.name}</TableCell>
-                    <TableCell>{u.email}</TableCell>
+                    <TableCell sx={hideColXs}>{u.email}</TableCell>
                     <TableCell>
                       <Chip size="small" label={u.perfil_label} />
                     </TableCell>
-                    <TableCell>{u.departamento?.nome ?? '—'}</TableCell>
+                    <TableCell sx={hideColXs}>{u.departamento?.nome ?? '—'}</TableCell>
                     <TableCell>
                       <StackStatus ativo={u.ativo} pendenteSenha={u.must_change_password} />
                     </TableCell>
@@ -192,8 +190,7 @@ export function UsuariosPage() {
                 )
               })}
             </TableBody>
-          </Table>
-        </TableContainer>
+        </ResponsiveTable>
         {!isLoading && (data?.length ?? 0) === 0 && (
           <EmptyState
             title="Nenhum usuário"

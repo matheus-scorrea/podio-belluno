@@ -110,7 +110,20 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
       anchor="right"
       open={open}
       onClose={onClose}
-      slotProps={{ paper: { sx: { width: { xs: '100%', sm: 420 }, p: 3, border: 'none', boxShadow: '-12px 0 32px rgba(10,17,40,0.12)' } } }}
+      slotProps={{
+        paper: {
+          sx: {
+            width: { xs: '100%', sm: 420 },
+            p: 3,
+            pt: 'max(24px, env(safe-area-inset-top))',
+            pb: 'max(24px, env(safe-area-inset-bottom))',
+            pl: 'max(24px, env(safe-area-inset-left))',
+            pr: 'max(24px, env(safe-area-inset-right))',
+            border: 'none',
+            boxShadow: '-12px 0 32px rgba(10,17,40,0.12)',
+          },
+        },
+      }}
     >
       <Typography variant="h6">Registrar resultado</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>

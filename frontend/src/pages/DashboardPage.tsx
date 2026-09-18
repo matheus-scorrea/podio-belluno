@@ -106,7 +106,7 @@ export function DashboardPage() {
         }
       />
       <FilterBar>
-          <FormControl size="small" sx={{ minWidth: 220 }}>
+          <FormControl size="small">
             <InputLabel>Competência</InputLabel>
             <Select
               label="Competência"
@@ -125,7 +125,7 @@ export function DashboardPage() {
             </Select>
           </FormControl>
           {user?.perfil !== 'colaborador' && (
-            <FormControl size="small" sx={{ minWidth: 180 }}>
+            <FormControl size="small">
               <InputLabel>Visão</InputLabel>
               <Select label="Visão" value={visao} onChange={(e) => setVisao(e.target.value)}>
                 {user?.perfil !== 'lider' && <MenuItem value="global">Empresa</MenuItem>}
@@ -135,7 +135,7 @@ export function DashboardPage() {
             </FormControl>
           )}
           {user?.is_direcao && visao === 'setor' && (
-            <FormControl size="small" sx={{ minWidth: 200 }}>
+            <FormControl size="small">
               <InputLabel>Setor</InputLabel>
               <Select
                 label="Setor"
@@ -151,7 +151,13 @@ export function DashboardPage() {
             </FormControl>
           )}
           {user?.is_direcao && (
-            <ToggleButtonGroup exclusive size="small" value={layout} onChange={(_, v) => v && setLayout(v)}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={layout}
+              onChange={(_, v) => v && setLayout(v)}
+              sx={{ flex: '0 1 auto', flexWrap: 'wrap' }}
+            >
               <ToggleButton value="gerencial">Resumo</ToggleButton>
               <ToggleButton value="analitica">Detalhado</ToggleButton>
             </ToggleButtonGroup>

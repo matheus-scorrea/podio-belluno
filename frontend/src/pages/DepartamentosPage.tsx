@@ -7,10 +7,8 @@ import {
   Paper,
   Skeleton,
   Stack,
-  Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   Tooltip,
@@ -21,6 +19,7 @@ import { api } from '../api/client'
 import { useAuth } from '../auth/useAuth'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
+import { hideColXs, ResponsiveTable } from '../components/ResponsiveTable'
 import { AppShell } from '../layout/AppShell'
 import type { Departamento } from '../types'
 
@@ -48,18 +47,17 @@ export function DepartamentosPage() {
         }
       />
       <Paper sx={{ overflow: 'hidden' }}>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Setor</TableCell>
-                <TableCell>Cargos</TableCell>
-                <TableCell>Cargo líder</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Ações</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
+        <ResponsiveTable>
+          <TableHead>
+            <TableRow>
+              <TableCell>Setor</TableCell>
+              <TableCell>Cargos</TableCell>
+              <TableCell sx={hideColXs}>Cargo líder</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell align="right">Ações</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
               {isLoading &&
                 Array.from({ length: 4 }).map((_, idx) => (
                   <TableRow key={`sk-${idx}`}>
@@ -85,7 +83,7 @@ export function DepartamentosPage() {
                       ))}
                     </Stack>
                   </TableCell>
-                  <TableCell>{d.cargo_lider?.nome ?? '—'}</TableCell>
+                  <TableCell sx={hideColXs}>{d.cargo_lider?.nome ?? '—'}</TableCell>
                   <TableCell>
                     <Chip size="small" label={d.ativo ? 'Ativo' : 'Inativo'} color={d.ativo ? 'success' : 'default'} />
                   </TableCell>
@@ -99,8 +97,7 @@ export function DepartamentosPage() {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
-        </TableContainer>
+        </ResponsiveTable>
         {!isLoading && (data?.length ?? 0) === 0 && (
           <EmptyState
             title="Nenhum setor cadastrado"

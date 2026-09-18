@@ -11,7 +11,18 @@ export function FilterBar({ children }: { children: ReactNode }) {
         bgcolor: 'background.paper',
       }}
     >
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ alignItems: { md: 'center' } }}>
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={1.5}
+        sx={{
+          alignItems: { xs: 'stretch', md: 'center' },
+          flexWrap: 'wrap',
+          '& > .MuiFormControl-root': {
+            flex: { xs: '1 1 100%', md: '1 1 180px' },
+            minWidth: 0,
+          },
+        }}
+      >
         {children}
       </Stack>
     </Paper>

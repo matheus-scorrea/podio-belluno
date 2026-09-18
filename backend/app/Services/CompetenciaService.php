@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Meta;
 use App\Models\MetaCompetencia;
 use App\Models\MetaLancamento;
+use App\Models\User;
+use App\Models\UsuarioCompetencia;
 use Carbon\Carbon;
 
 class CompetenciaService
@@ -66,7 +68,22 @@ class CompetenciaService
             }
         }
 
+        $this->retratarUsuarios($ano, $mes);
+
         return $criadas;
+    }
+
+    public function retratarUsuarios(int $ano, int $mes): void
+    {
+        User::query()->where('ativo', true)->each(function (User $user) use ($ano, $mes) {
+            UsuarioCompetencia::query()->firstOrCreate(
+                ['user_id' => $user->id, 'ano' => $ano, 'mes' => $mes],
+                [
+                    'departamento_id' => $user->departamento_id,
+                    'cargo_id' => $user->cargo_id,
+                ],
+            );
+        });
     }
 
     public function hidratar(Meta $meta, int $ano, int $mes): Meta

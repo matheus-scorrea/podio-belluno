@@ -15,10 +15,8 @@ import {
   Paper,
   Select,
   Skeleton,
-  Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   Tooltip,
@@ -32,6 +30,7 @@ import { useAuth } from '../auth/useAuth'
 import { EmptyState } from '../components/EmptyState'
 import { FilterBar } from '../components/FilterBar'
 import { PageHeader } from '../components/PageHeader'
+import { hideColXs, ResponsiveTable } from '../components/ResponsiveTable'
 import { AppShell } from '../layout/AppShell'
 import { chartLabel, competenciaLabel, escopoLabel, formatBonus, MESES, TIPOS_ESCOPO } from '../lib/labels'
 import { departamentosParaSelect } from '../lib/organizacao'
@@ -126,7 +125,7 @@ export function MetasListPage() {
         }
       />
       <FilterBar>
-          <FormControl size="small" sx={{ minWidth: 200 }}>
+          <FormControl size="small">
             <InputLabel>Competência</InputLabel>
             <Select
               label="Competência"
@@ -144,7 +143,7 @@ export function MetasListPage() {
               ))}
             </Select>
           </FormControl>
-          <FormControl size="small" sx={{ minWidth: 200 }}>
+          <FormControl size="small">
             <InputLabel>Setor</InputLabel>
             <Select
               label="Setor"
@@ -162,7 +161,7 @@ export function MetasListPage() {
               ))}
             </Select>
           </FormControl>
-          <FormControl size="small" sx={{ minWidth: 200 }}>
+          <FormControl size="small">
             <InputLabel>Escopo</InputLabel>
             <Select
               label="Escopo"
@@ -179,19 +178,18 @@ export function MetasListPage() {
           </FormControl>
       </FilterBar>
       <Paper sx={{ overflow: 'hidden' }}>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Indicador</TableCell>
-                <TableCell>Escopo</TableCell>
-                <TableCell>Tipo</TableCell>
-                <TableCell>Alvo</TableCell>
-                <TableCell>Bônus</TableCell>
-                {podeEditar && <TableCell align="right">Ações</TableCell>}
-              </TableRow>
-            </TableHead>
-            <TableBody>
+        <ResponsiveTable>
+          <TableHead>
+            <TableRow>
+              <TableCell>Indicador</TableCell>
+              <TableCell>Escopo</TableCell>
+              <TableCell sx={hideColXs}>Tipo</TableCell>
+              <TableCell>Alvo</TableCell>
+              <TableCell sx={hideColXs}>Bônus</TableCell>
+              {podeEditar && <TableCell align="right">Ações</TableCell>}
+            </TableRow>
+          </TableHead>
+          <TableBody>
               {isLoading &&
                 Array.from({ length: 4 }).map((_, idx) => (
                   <TableRow key={`sk-${idx}`}>
@@ -214,11 +212,11 @@ export function MetasListPage() {
                   <TableCell>
                     <Chip size="small" label={escopoLabel(m.tipo_escopo)} />
                   </TableCell>
-                  <TableCell>{chartLabel(m.chart_tipo)}</TableCell>
+                  <TableCell sx={hideColXs}>{chartLabel(m.chart_tipo)}</TableCell>
                   <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>
                     {m.chart_tipo === 'marco' ? 'Feito / pendente' : m.chart_tipo === 'comissao' ? 'Gatilhos de comissão' : `${m.valor_meta} ${m.unidade}`}
                   </TableCell>
-                  <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>{formatBonus(m.valor_bonus)}</TableCell>
+                  <TableCell sx={{ fontVariantNumeric: 'tabular-nums', ...hideColXs }}>{formatBonus(m.valor_bonus)}</TableCell>
                   {podeEditar && (
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                       <Tooltip title="Editar">
@@ -236,8 +234,7 @@ export function MetasListPage() {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
-        </TableContainer>
+        </ResponsiveTable>
         {!isLoading && (data?.length ?? 0) === 0 && (
           <EmptyState
             title={temFiltro ? 'Nenhuma meta com estes filtros' : 'Nenhuma meta nesta competência'}

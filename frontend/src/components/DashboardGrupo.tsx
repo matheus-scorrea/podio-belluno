@@ -29,7 +29,7 @@ function MetaGrid({ metas, compact }: { metas: DashboardMeta[]; compact: boolean
   return (
     <Grid container spacing={2}>
       {metas.map((meta) => (
-        <Grid key={meta.id} size={{ xs: 12, md: compact ? 4 : 6, lg: meta.chart.tipo === 'column' || meta.chart.tipo === 'comissao' ? 12 : compact ? 4 : 6 }}>
+        <Grid key={meta.id} size={{ xs: 12, sm: compact ? 6 : 12, md: compact ? 4 : 6, lg: meta.chart.tipo === 'column' || meta.chart.tipo === 'comissao' ? 12 : compact ? 4 : 6 }}>
           <MetaCard meta={meta} compact={compact} />
         </Grid>
       ))}

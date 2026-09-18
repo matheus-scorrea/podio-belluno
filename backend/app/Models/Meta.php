@@ -22,6 +22,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'chart_tipo',
     'chart_cor',
     'valor_bonus',
+    'modo_bonus',
+    'bonus_piso_percentual',
+    'bonus_teto_percentual',
+    'bonus_por_unidade_extra',
     'niveis_comissao',
     'marco_por_pessoa',
     'created_by',
@@ -40,6 +44,9 @@ class Meta extends Model
         return [
             'ativo' => 'boolean',
             'valor_bonus' => 'decimal:2',
+            'bonus_piso_percentual' => 'decimal:1',
+            'bonus_teto_percentual' => 'decimal:1',
+            'bonus_por_unidade_extra' => 'decimal:2',
             'niveis_comissao' => 'array',
             'marco_por_pessoa' => 'boolean',
         ];
@@ -113,6 +120,31 @@ class Meta extends Model
     public function isPorGrao(): bool
     {
         return $this->isComparativa() || $this->isComissao() || $this->isPorPessoa();
+    }
+
+    public function modoBonus(): string
+    {
+        if (! $this->isQuantitativa() || $this->sentido === 'menor_melhor') {
+            return 'fixo';
+        }
+
+        $modo = (string) ($this->modo_bonus ?: 'fixo');
+
+        return in_array($modo, ['fixo', 'linear', 'unidade'], true) ? $modo : 'fixo';
+    }
+
+    public function atingimentoSemTeto(): bool
+    {
+        return $this->modoBonus() !== 'fixo';
+    }
+
+    public function pisoBonus(): float
+    {
+        if ($this->modoBonus() === 'linear') {
+            return (float) ($this->bonus_piso_percentual ?? 100);
+        }
+
+        return 100.0;
     }
 
     public function enquadra(User $user): bool
@@ -215,6 +247,7 @@ class Meta extends Model
             (float) $this->getAttribute('valor_realizado'),
             (float) $this->getAttribute('valor_meta'),
             $this->sentido,
+            ! $this->atingimentoSemTeto(),
         );
     }
 

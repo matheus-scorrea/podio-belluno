@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined'
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlined'
 import {
   Alert,
   Autocomplete,
@@ -24,10 +25,13 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../auth/useAuth'
@@ -35,12 +39,167 @@ import { previewMeta, renderMetaChart } from '../charts/chartFactory'
 import { PageHeader } from '../components/PageHeader'
 import { AppShell } from '../layout/AppShell'
 import { nivelEmBranco, TABELA_BELLUNO, type NivelComissao } from '../lib/comissao'
-import { MESES } from '../lib/labels'
+import { formatBonus, MESES } from '../lib/labels'
 import { cargosParaEscopo, departamentosParaSelect } from '../lib/organizacao'
-import type { AuthUser, Cargo, ChartTipo, Departamento, MetaDetail, Sentido, TipoEscopo } from '../types'
+import type { AuthUser, Cargo, ChartTipo, Departamento, MetaDetail, ModoBonus, Sentido, TipoEscopo } from '../types'
 
 const steps = ['Dados', 'Escopo', 'Visualização']
 const cores = ['#00A8E8', '#0077B6', '#10B981', '#F59E0B', '#EF4444', '#0A1128']
+
+function numeroExemplo(valor: string, fallback: number): number {
+  const n = Number(valor)
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
+
+function BonusModoHelp({
+  modo,
+  valorBonus,
+  valorMeta,
+  bonusPiso,
+  bonusTeto,
+  bonusPorUnidade,
+}: {
+  modo: ModoBonus
+  valorBonus: string
+  valorMeta: string
+  bonusPiso: string
+  bonusTeto: string
+  bonusPorUnidade: string
+}) {
+  const bonus = numeroExemplo(valorBonus, 200)
+  const alvo = numeroExemplo(valorMeta, 10)
+  const piso = numeroExemplo(bonusPiso, 100)
+  const extra = numeroExemplo(bonusPorUnidade, 25)
+  const teto = bonusTeto !== '' && Number(bonusTeto) > 0 ? Number(bonusTeto) : null
+  const acima = alvo * 1.5
+  const unidadesAMais = 4
+
+  const conteudo =
+    modo === 'linear' ? (
+      <>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+          Proporcional
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          Atingimento = realizado ÷ alvo × 100. Abaixo do piso ({piso}%), o bônus é {formatBonus(0)}. A partir do piso, o valor acompanha o atingimento:
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          {teto
+            ? `pagamento = ${formatBonus(bonus)} × min(atingimento, ${teto}%) ÷ 100`
+            : `pagamento = ${formatBonus(bonus)} × atingimento ÷ 100`}
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          Ex.: alvo {alvo}, fez {acima} ({Math.round((acima / alvo) * 100)}%) →{' '}
+          {formatBonus(bonus * Math.min((acima / alvo) * 100, teto ?? Infinity) / 100)}.
+          {teto ? ` O teto de ${teto}% limita o dinheiro, não o indicador.` : ' Sem teto, o valor continua subindo.'}
+        </Typography>
+      </>
+    ) : modo === 'unidade' ? (
+      <>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+          Por unidade extra
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          Abaixo do alvo, o bônus é {formatBonus(0)}. Ao bater o alvo:
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          pagamento = {formatBonus(bonus)} + (realizado − {alvo}) × {formatBonus(extra)}
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          Ex.: fez {alvo + unidadesAMais} → {formatBonus(bonus + unidadesAMais * extra)}.
+        </Typography>
+      </>
+    ) : (
+      <>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+          Fixo
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          Tudo ou nada. Bateu o alvo (100%), recebe {formatBonus(bonus)}. Acima do alvo, o valor não aumenta.
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          Fez {acima} → {formatBonus(bonus)}. Fez {Math.round(alvo * 0.9)} → {formatBonus(0)}.
+        </Typography>
+      </>
+    )
+
+  return (
+    <Box sx={{ p: 0.25, maxWidth: 340 }}>
+      {conteudo}
+    </Box>
+  )
+}
+
+function TipoIndicadorHelp({ tipo }: { tipo: 'quantitativo' | 'marco' | 'comissao' }) {
+  const conteudo =
+    tipo === 'marco' ? (
+      <>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+          Por marco
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          Feito ou não feito. Não tem alvo numérico nem lançamento de quantidade: a meta fecha quando o marco é marcado como concluído.
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          O bônus é tudo ou nada. No escopo você escolhe se o feito vale para o grupo inteiro ou para cada pessoa.
+        </Typography>
+      </>
+    ) : tipo === 'comissao' ? (
+      <>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+          Comissão de vendedor
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          Cada vendedor lança a própria receita recorrente e a adesão no mês. As faixas (níveis) definem o percentual e o prêmio.
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          Não usa piso, teto nem unidade extra: o pagamento sai da tabela de comissão.
+        </Typography>
+      </>
+    ) : (
+      <>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+          Quantitativa
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          Meta com número — %, R$ ou quantidade. Tem alvo e lançamentos no mês. O atingimento é realizado ÷ alvo.
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.75 }}>
+          O bônus pode ser fixo, proporcional (acompanha o %) ou por unidade extra. No painel aparece como velocímetro, barra ou gráfico.
+        </Typography>
+      </>
+    )
+
+  return (
+    <Box sx={{ p: 0.25, maxWidth: 340 }}>
+      {conteudo}
+    </Box>
+  )
+}
+
+function CampoHelp({
+  ariaLabel,
+  children,
+}: {
+  ariaLabel: string
+  children: ReactNode
+}) {
+  return (
+    <Tooltip
+      arrow
+      describeChild
+      placement="top"
+      enterTouchDelay={0}
+      leaveTouchDelay={5000}
+      slotProps={{ tooltip: { sx: { maxWidth: 360, p: 1.25 } } }}
+      title={children}
+    >
+      <IconButton size="small" aria-label={ariaLabel} sx={{ p: 0.25, color: 'text.secondary' }}>
+        <HelpOutlineIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  )
+}
 
 function tipoIndicador(chartTipo: ChartTipo): 'quantitativo' | 'marco' | 'comissao' {
   if (chartTipo === 'marco') {
@@ -56,6 +215,8 @@ export function MetaStepperPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user } = useAuth()
+  const theme = useTheme()
+  const isSmUp = useMediaQuery(theme.breakpoints.up('sm'))
   const { id } = useParams()
   const [searchParams] = useSearchParams()
   const isEdit = Boolean(id)
@@ -77,6 +238,10 @@ export function MetaStepperPage() {
   const [chartCor, setChartCor] = useState('#00A8E8')
   const [niveis, setNiveis] = useState<NivelComissao[]>(TABELA_BELLUNO)
   const [porPessoa, setPorPessoa] = useState(false)
+  const [modoBonus, setModoBonus] = useState<ModoBonus>('fixo')
+  const [bonusPiso, setBonusPiso] = useState('100')
+  const [bonusTeto, setBonusTeto] = useState('')
+  const [bonusPorUnidade, setBonusPorUnidade] = useState('0')
   const [error, setError] = useState<string | null>(null)
   const [hydrated, setHydrated] = useState(!isEdit)
 
@@ -121,6 +286,10 @@ export function MetaStepperPage() {
       setNiveis(meta.niveis_comissao)
     }
     setPorPessoa(meta.marco_por_pessoa === true || meta.marco_por_pessoa === 1)
+    setModoBonus(meta.modo_bonus ?? 'fixo')
+    setBonusPiso(String(meta.bonus_piso_percentual ?? 100))
+    setBonusTeto(meta.bonus_teto_percentual == null ? '' : String(meta.bonus_teto_percentual))
+    setBonusPorUnidade(String(meta.bonus_por_unidade_extra ?? 0))
     setHydrated(true)
   }, [meta])
 
@@ -151,6 +320,16 @@ export function MetaStepperPage() {
       departamento_ids: deptsSel.map((d) => d.id),
       niveis_comissao: ehComissao ? niveis : undefined,
       marco_por_pessoa: porPessoa,
+      modo_bonus: ehMarco || ehComissao || sentido === 'menor_melhor' ? 'fixo' : modoBonus,
+      bonus_piso_percentual: !ehMarco && !ehComissao && sentido !== 'menor_melhor' && modoBonus === 'linear'
+        ? Number(bonusPiso)
+        : null,
+      bonus_teto_percentual: !ehMarco && !ehComissao && sentido !== 'menor_melhor' && modoBonus === 'linear' && bonusTeto !== ''
+        ? Number(bonusTeto)
+        : null,
+      bonus_por_unidade_extra: !ehMarco && !ehComissao && sentido !== 'menor_melhor' && modoBonus === 'unidade'
+        ? Number(bonusPorUnidade)
+        : null,
     }
   }
 
@@ -200,7 +379,8 @@ export function MetaStepperPage() {
           <>
             <Stepper
               activeStep={active}
-              alternativeLabel
+              alternativeLabel={isSmUp}
+              orientation={isSmUp ? 'horizontal' : 'vertical'}
               sx={{
                 mb: 4,
                 '& .MuiStepIcon-root.Mui-completed, & .MuiStepIcon-root.Mui-active': { color: 'primary.main' },
@@ -223,9 +403,14 @@ export function MetaStepperPage() {
                   minRows={3}
                 />
                 <FormControl>
-                  <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
-                    Tipo de indicador
-                  </Typography>
+                  <Stack direction="row" spacing={0.5} sx={{ mb: 1, alignItems: 'center' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      Tipo de indicador
+                    </Typography>
+                    <CampoHelp ariaLabel="O que cada tipo de indicador faz">
+                      <TipoIndicadorHelp tipo={tipoIndicador(chartTipo)} />
+                    </CampoHelp>
+                  </Stack>
                   <RadioGroup
                     value={tipoIndicador(chartTipo)}
                     onChange={(e) => {
@@ -234,6 +419,7 @@ export function MetaStepperPage() {
                         setUnidade('marco')
                         setValorMeta('1')
                         setSentido('maior_melhor')
+                        setModoBonus('fixo')
                         return
                       }
                       if (e.target.value === 'comissao') {
@@ -241,6 +427,7 @@ export function MetaStepperPage() {
                         setUnidade('R$')
                         setSentido('maior_melhor')
                         setTipoEscopo((atual) => (atual === 'cargo' || atual === 'individual' ? atual : 'cargo'))
+                        setModoBonus('fixo')
                         return
                       }
                       if (chartTipo === 'marco' || chartTipo === 'comissao') {
@@ -267,7 +454,7 @@ export function MetaStepperPage() {
                   </Alert>
                 )}
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                  <FormControl sx={{ minWidth: 180, flex: 1 }}>
+                  <FormControl sx={{ minWidth: 0, flex: 1 }}>
                     <InputLabel>Competência (alvo)</InputLabel>
                     <Select label="Competência (alvo)" value={mes} onChange={(e) => setMes(Number(e.target.value))}>
                       {MESES.map((nome, i) => (
@@ -279,7 +466,7 @@ export function MetaStepperPage() {
                   </FormControl>
                   <TextField label="Ano" type="number" value={ano} onChange={(e) => setAno(Number(e.target.value))} sx={{ flex: 1 }} />
                   {chartTipo !== 'marco' && !ehComissao && (
-                    <FormControl sx={{ minWidth: 140, flex: 1 }}>
+                    <FormControl sx={{ minWidth: 0, flex: 1 }}>
                       <InputLabel>Unidade</InputLabel>
                       <Select label="Unidade" value={unidade} onChange={(e) => setUnidade(String(e.target.value))}>
                         <MenuItem value="%">%</MenuItem>
@@ -309,7 +496,7 @@ export function MetaStepperPage() {
                             copia[indice] = { ...copia[indice], nome: e.target.value }
                             setNiveis(copia)
                           }}
-                          sx={{ minWidth: 110, flex: 1 }}
+                          sx={{ minWidth: 0, flex: 1 }}
                         />
                         <TextField
                           label="Venda mín."
@@ -380,7 +567,17 @@ export function MetaStepperPage() {
                         <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
                           Sentido do indicador
                         </Typography>
-                        <RadioGroup row value={sentido} onChange={(e) => setSentido(e.target.value as Sentido)}>
+                        <RadioGroup
+                          row
+                          value={sentido}
+                          onChange={(e) => {
+                            const next = e.target.value as Sentido
+                            setSentido(next)
+                            if (next === 'menor_melhor') {
+                              setModoBonus('fixo')
+                            }
+                          }}
+                        >
                           <FormControlLabel value="maior_melhor" control={<Radio />} label="Maior é melhor" />
                           <FormControlLabel value="menor_melhor" control={<Radio />} label="Menor é melhor" />
                         </RadioGroup>
@@ -394,8 +591,82 @@ export function MetaStepperPage() {
                     type="number"
                     value={valorBonus}
                     onChange={(e) => setValorBonus(e.target.value)}
-                    helperText="Pago no fechamento do mês quando a meta é batida. Não aparece no painel."
+                    helperText={
+                      ehQuantitativa && modoBonus === 'linear' && sentido === 'maior_melhor'
+                        ? 'Valor pago ao atingir 100% do alvo. Acima do piso, o pagamento cresce na mesma proporção.'
+                        : ehQuantitativa && modoBonus === 'unidade' && sentido === 'maior_melhor'
+                          ? 'Valor pago ao bater o alvo. Cada unidade extra usa o campo abaixo.'
+                          : 'Pago no fechamento do mês quando a meta é batida. Não aparece no painel.'
+                    }
                   />
+                )}
+                {ehQuantitativa && sentido === 'maior_melhor' && (
+                  <>
+                    <FormControl>
+                      <Stack direction="row" spacing={0.5} sx={{ mb: 1, alignItems: 'center' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          Como o bônus é pago
+                        </Typography>
+                        <CampoHelp ariaLabel="Como o bônus é calculado">
+                          <BonusModoHelp
+                            modo={modoBonus}
+                            valorBonus={valorBonus}
+                            valorMeta={valorMeta}
+                            bonusPiso={bonusPiso}
+                            bonusTeto={bonusTeto}
+                            bonusPorUnidade={bonusPorUnidade}
+                          />
+                        </CampoHelp>
+                      </Stack>
+                      <RadioGroup
+                        value={modoBonus}
+                        onChange={(_, value) => setModoBonus(value as ModoBonus)}
+                      >
+                        <FormControlLabel
+                          value="fixo"
+                          control={<Radio />}
+                          label="Fixo: bateu o alvo, recebe o valor inteiro"
+                        />
+                        <FormControlLabel
+                          value="linear"
+                          control={<Radio />}
+                          label="Proporcional: a partir do piso, o valor acompanha o atingimento"
+                        />
+                        <FormControlLabel
+                          value="unidade"
+                          control={<Radio />}
+                          label="Por unidade extra: bateu o alvo e cada unidade a mais paga a mais"
+                        />
+                      </RadioGroup>
+                    </FormControl>
+                    {modoBonus === 'linear' && (
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                        <TextField
+                          label="Piso para pagar (%)"
+                          type="number"
+                          value={bonusPiso}
+                          onChange={(e) => setBonusPiso(e.target.value)}
+                          helperText="Abaixo disso, o bônus é zero."
+                        />
+                        <TextField
+                          label="Teto do pagamento (%)"
+                          type="number"
+                          value={bonusTeto}
+                          onChange={(e) => setBonusTeto(e.target.value)}
+                          helperText="Vazio = sem teto no dinheiro."
+                        />
+                      </Stack>
+                    )}
+                    {modoBonus === 'unidade' && (
+                      <TextField
+                        label="Bônus por unidade extra"
+                        type="number"
+                        value={bonusPorUnidade}
+                        onChange={(e) => setBonusPorUnidade(e.target.value)}
+                        helperText="Somado ao bônus-base para cada unidade acima do alvo."
+                      />
+                    )}
+                  </>
                 )}
               </Stack>
             )}
@@ -517,7 +788,7 @@ export function MetaStepperPage() {
                     </ToggleButtonGroup>
                   </>
                 )}
-                <Stack direction="row" spacing={1}>
+                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                   {cores.map((c) => (
                     <Box
                       key={c}

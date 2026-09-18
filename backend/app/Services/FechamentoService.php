@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Meta;
 use App\Models\MetaLancamento;
 use App\Models\User;
+use App\Support\BonusPagamento;
 use App\Support\IndicadorStatus;
 use Illuminate\Support\Collection;
 
@@ -37,36 +38,17 @@ class FechamentoService
 
         foreach ($metas as $meta) {
             $this->competencias->hidratar($meta, $ano, $mes);
-
-            if ($meta->isComissao()) {
-                $this->acumularComissao($meta, $ativos, $porUsuario, $ano, $mes);
-
-                continue;
-            }
-
-            if ($meta->isPorPessoa()) {
-                $this->acumularPorPessoa($meta, $ativos, $porUsuario, $ano, $mes);
-
-                continue;
-            }
-
             $series = $meta->isComparativa() ? $this->series($meta, $ano, $mes) : collect();
-            $bonus = round((float) $meta->valor_bonus, 2);
 
             foreach ($this->beneficiarios($meta, $ativos) as $beneficiario) {
-                $percentual = $this->percentualDoUsuario($beneficiario, $meta, $series);
-                if ($percentual < 100) {
+                $item = $this->itemMetaParaUsuario($beneficiario, $meta, $ano, $mes, $series);
+                if (! $item['bateu']) {
                     continue;
                 }
 
+                unset($item['bateu']);
                 $porUsuario[$beneficiario->id] ??= ['usuario' => $beneficiario, 'itens' => []];
-                $porUsuario[$beneficiario->id]['itens'][] = [
-                    'meta_id' => $meta->id,
-                    'titulo' => $meta->titulo,
-                    'tipo_escopo' => $meta->tipo_escopo,
-                    'percentual' => $percentual,
-                    'valor_bonus' => $bonus,
-                ];
+                $porUsuario[$beneficiario->id]['itens'][] = $item;
             }
         }
 
@@ -112,16 +94,50 @@ class FechamentoService
     }
 
     /**
-     * @param  Collection<int, User>  $ativos
-     * @param  array<int, array{usuario: User, itens: list<array<string, mixed>>}>  $porUsuario
+     * Recorte visao=me da competência, incluindo metas não batidas.
+     *
+     * @return list<array<string, mixed>>
      */
-    private function acumularComissao(Meta $meta, Collection $ativos, array &$porUsuario, int $ano, int $mes): bool
+    public function itensDoUsuario(User $user, int $ano, int $mes): array
     {
-        $niveis = $this->comissao->niveisValidos($meta->niveis_comissao ?? []);
-        $ultimos = $this->progresso->ultimosPorGrao($meta, $ano, $mes);
-        $pagouAlguem = false;
+        $metas = Meta::query()
+            ->with(['departamentos', 'cargos', 'usuarios'])
+            ->competencia($ano, $mes)
+            ->visibleTo($user)
+            ->where(function ($q) use ($user) {
+                $q->where('tipo_escopo', 'global')
+                    ->orWhereHas('usuarios', fn ($inner) => $inner->where('users.id', $user->id))
+                    ->orWhereHas('cargos', fn ($inner) => $inner->where('cargos.id', $user->cargo_id))
+                    ->orWhereHas('departamentos', fn ($inner) => $inner->where('departamentos.id', $user->departamento_id));
+            })
+            ->orderBy('titulo')
+            ->get();
 
-        foreach ($this->beneficiarios($meta, $ativos) as $user) {
+        $itens = [];
+        foreach ($metas as $meta) {
+            $this->competencias->hidratar($meta, $ano, $mes);
+            $series = $meta->isComparativa() ? $this->series($meta, $ano, $mes) : collect();
+            $itens[] = $this->itemMetaParaUsuario($user, $meta, $ano, $mes, $series);
+        }
+
+        return collect($itens)->sortBy('titulo', SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $series
+     * @return array<string, mixed>
+     */
+    private function itemMetaParaUsuario(User $user, Meta $meta, int $ano, int $mes, Collection $series): array
+    {
+        $base = [
+            'meta_id' => $meta->id,
+            'titulo' => $meta->titulo,
+            'tipo_escopo' => $meta->tipo_escopo,
+        ];
+
+        if ($meta->isComissao()) {
+            $niveis = $this->comissao->niveisValidos($meta->niveis_comissao ?? []);
+            $ultimos = $this->progresso->ultimosPorGrao($meta, $ano, $mes);
             $lancamento = $ultimos->first(
                 fn (MetaLancamento $l) => (int) $l->usuario_alvo_id === (int) $user->id
             );
@@ -130,62 +146,65 @@ class FechamentoService
                 (float) ($lancamento?->valor_realizado ?? 0),
                 (float) ($lancamento?->valor_adesao ?? 0),
             );
+            $bateu = $calc['total'] > 0;
 
-            if ($calc['total'] <= 0) {
-                continue;
-            }
-
-            $pagouAlguem = true;
-            $porUsuario[$user->id] ??= ['usuario' => $user, 'itens' => []];
-            $porUsuario[$user->id]['itens'][] = [
-                'meta_id' => $meta->id,
-                'titulo' => $meta->titulo,
-                'tipo_escopo' => $meta->tipo_escopo,
-                'percentual' => 100.0,
-                'valor_bonus' => round((float) $calc['total'], 2),
-                'nivel' => $calc['nivel'],
+            return [
+                ...$base,
+                'percentual' => $bateu ? 100.0 : 0.0,
+                'bateu' => $bateu,
+                'valor_bonus' => $bateu ? round((float) $calc['total'], 2) : 0.0,
+                'nivel' => $bateu ? $calc['nivel'] : null,
             ];
         }
 
-        return $pagouAlguem;
-    }
-
-    /**
-     * @param  Collection<int, User>  $ativos
-     * @param  array<int, array{usuario: User, itens: list<array<string, mixed>>}>  $porUsuario
-     */
-    private function acumularPorPessoa(Meta $meta, Collection $ativos, array &$porUsuario, int $ano, int $mes): bool
-    {
-        $ultimos = $this->progresso->ultimosPorGrao($meta, $ano, $mes);
-        $bonus = round((float) $meta->valor_bonus, 2);
-        $alvo = (float) $meta->getAttribute('valor_meta');
-        $pagouAlguem = false;
-
-        foreach ($this->beneficiarios($meta, $ativos) as $user) {
+        if ($meta->isPorPessoa()) {
+            $ultimos = $this->progresso->ultimosPorGrao($meta, $ano, $mes);
             $lancamento = $ultimos->first(
                 fn (MetaLancamento $l) => (int) $l->usuario_alvo_id === (int) $user->id
             );
             $valor = (float) ($lancamento?->valor_realizado ?? 0);
+            $alvo = (float) $meta->getAttribute('valor_meta');
             $percentual = $meta->isMarco()
                 ? ($valor >= 1 ? 100.0 : 0.0)
-                : IndicadorStatus::percentual($valor, $alvo, $meta->sentido);
+                : IndicadorStatus::percentual($valor, $alvo, $meta->sentido, ! $meta->atingimentoSemTeto());
+            $bateu = $percentual + 0.00001 >= $meta->pisoBonus();
 
-            if ($percentual < 100) {
-                continue;
-            }
-
-            $pagouAlguem = true;
-            $porUsuario[$user->id] ??= ['usuario' => $user, 'itens' => []];
-            $porUsuario[$user->id]['itens'][] = [
-                'meta_id' => $meta->id,
-                'titulo' => $meta->titulo,
-                'tipo_escopo' => $meta->tipo_escopo,
+            return [
+                ...$base,
                 'percentual' => $percentual,
-                'valor_bonus' => $bonus,
+                'bateu' => $bateu,
+                'valor_bonus' => $bateu ? BonusPagamento::calcular($meta, $valor, $alvo, $percentual) : 0.0,
             ];
         }
 
-        return $pagouAlguem;
+        $alvo = (float) $meta->getAttribute('valor_meta');
+        $realizado = (float) $meta->getAttribute('valor_realizado');
+        if ($meta->isComparativa()) {
+            $grao = $series->first(function (array $s) use ($user, $meta) {
+                return match ($meta->tipo_escopo) {
+                    'individual' => (int) ($s['usuario_alvo_id'] ?? 0) === (int) $user->id,
+                    'cargo' => (int) ($s['cargo_id'] ?? 0) === (int) $user->cargo_id,
+                    'departamento', 'global' => (int) ($s['departamento_id'] ?? 0) === (int) $user->departamento_id,
+                    default => false,
+                };
+            });
+            $realizado = (float) ($grao['valor'] ?? 0);
+        }
+        $percentual = $meta->isComparativa()
+            ? IndicadorStatus::percentual($realizado, $alvo, $meta->sentido, ! $meta->atingimentoSemTeto())
+            : $meta->percentual();
+        $eBeneficiario = $this->beneficiarios(
+            $meta,
+            collect([$user->id => $user]),
+        )->contains(fn (User $u) => (int) $u->id === (int) $user->id);
+        $bateu = $eBeneficiario && $percentual + 0.00001 >= $meta->pisoBonus();
+
+        return [
+            ...$base,
+            'percentual' => $percentual,
+            'bateu' => $bateu,
+            'valor_bonus' => $bateu ? BonusPagamento::calcular($meta, $realizado, $alvo, $percentual) : 0.0,
+        ];
     }
 
     /**
@@ -201,27 +220,6 @@ class FechamentoService
             'global' => $ativos->filter(fn (User $u) => ! $u->is_direcao)->values(),
             default => collect(),
         };
-    }
-
-    /**
-     * @param  Collection<int, array<string, mixed>>  $series
-     */
-    private function percentualDoUsuario(User $user, Meta $meta, Collection $series): float
-    {
-        if (! $meta->isComparativa()) {
-            return $meta->percentual();
-        }
-
-        $grao = $series->first(function (array $s) use ($user, $meta) {
-            return match ($meta->tipo_escopo) {
-                'individual' => (int) ($s['usuario_alvo_id'] ?? 0) === (int) $user->id,
-                'cargo' => (int) ($s['cargo_id'] ?? 0) === (int) $user->cargo_id,
-                'departamento', 'global' => (int) ($s['departamento_id'] ?? 0) === (int) $user->departamento_id,
-                default => false,
-            };
-        });
-
-        return (float) ($grao['percentual'] ?? 0);
     }
 
     /**
@@ -246,7 +244,8 @@ class FechamentoService
                 'departamento_id' => $grao['departamento_id'] ?? null,
                 'cargo_id' => $grao['cargo_id'] ?? null,
                 'usuario_alvo_id' => $grao['usuario_alvo_id'] ?? null,
-                'percentual' => IndicadorStatus::percentual($valor, $alvo, $meta->sentido),
+                'valor' => $valor,
+                'percentual' => IndicadorStatus::percentual($valor, $alvo, $meta->sentido, ! $meta->atingimentoSemTeto()),
             ];
         })->values();
     }

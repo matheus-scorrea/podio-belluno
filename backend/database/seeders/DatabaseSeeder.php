@@ -146,6 +146,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $this->call(OkrBancoSeeder::class);
+        $this->call(ResultadosDemoSeeder::class);
     }
 
     private function unirCoordenacaoNoSucesso(): void

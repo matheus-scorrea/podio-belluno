@@ -19,10 +19,10 @@ export function MetaCard({ meta, compact = false }: { meta: DashboardMeta; compa
     >
       <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Box sx={{ minWidth: 0, pr: 1 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
+          <Typography variant="subtitle1" noWrap sx={{ fontWeight: 600, lineHeight: 1.3 }}>
             {meta.titulo}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" noWrap>
             {meta.subtitulo}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>

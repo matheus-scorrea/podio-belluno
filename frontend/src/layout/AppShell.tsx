@@ -4,6 +4,7 @@ import CorporateFareIcon from '@mui/icons-material/CorporateFareOutlined'
 import GroupIcon from '@mui/icons-material/GroupOutlined'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined'
+import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined'
 import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined'
@@ -23,6 +24,8 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Menu,
+  MenuItem,
   Stack,
   Toolbar,
   Tooltip,
@@ -49,13 +52,11 @@ const navDirecao = [
   { to: '/departamentos', label: 'Setores', icon: <CorporateFareIcon fontSize="small" />, match: (p: string) => p.startsWith('/departamentos') },
   { to: '/usuarios', label: 'Usuários', icon: <GroupIcon fontSize="small" />, match: (p: string) => p.startsWith('/usuarios') },
   { to: '/fechamento', label: 'Fechamento', icon: <PaymentsOutlinedIcon fontSize="small" />, match: (p: string) => p.startsWith('/fechamento') },
-  navConta,
 ]
 
 const navEquipe = [
   { to: '/', label: 'Painel', icon: <DashboardIcon fontSize="small" />, match: (p: string) => p === '/' },
   { to: '/fechamento', label: 'Fechamento', icon: <PaymentsOutlinedIcon fontSize="small" />, match: (p: string) => p.startsWith('/fechamento') },
-  navConta,
 ]
 
 type Props = {
@@ -91,12 +92,14 @@ export function AppShell({ children, ano, mes }: Props) {
   const location = useLocation()
   const navigate = useNavigate()
   const theme = useTheme()
-  const isDesktop = useMediaQuery(theme.breakpoints.up('md'), { noSsr: true })
+  const isDesktop = useMediaQuery(theme.breakpoints.up('lg'), { noSsr: true })
   const [navOpen, setNavOpen] = useState(false)
   const [lancamentoOpen, setLancamentoOpen] = useState(false)
+  const [userMenuEl, setUserMenuEl] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     setNavOpen(false)
+    setUserMenuEl(null)
   }, [location.pathname])
 
   useEffect(() => {
@@ -118,9 +121,11 @@ export function AppShell({ children, ano, mes }: Props) {
   }
 
   const links = user.is_direcao ? navDirecao : navEquipe
+  const userMenuOpen = Boolean(userMenuEl)
 
   async function handleLogout() {
     setNavOpen(false)
+    setUserMenuEl(null)
     await logout()
     navigate('/login')
   }
@@ -151,25 +156,25 @@ export function AppShell({ children, ano, mes }: Props) {
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <AppBar position="sticky">
-        <Toolbar sx={{ gap: { xs: 1, md: 2 }, minHeight: { xs: 64, md: 68 }, px: { xs: 1.5, sm: 2, md: 3 } }}>
+        <Toolbar sx={{ gap: { xs: 1, lg: 2 }, minHeight: { xs: 64, md: 68 }, px: { xs: 1.5, sm: 2, md: 3 }, overflow: 'hidden' }}>
           <IconButton
             color="inherit"
             onClick={() => setNavOpen(true)}
             aria-label="Abrir menu"
-            sx={{ display: { xs: 'inline-flex', md: 'none' } }}
+            sx={{ display: { xs: 'inline-flex', lg: 'none' } }}
           >
             <MenuOutlinedIcon />
           </IconButton>
           <AppNameLink onDark />
-          <Stack direction="row" spacing={0.25} sx={{ flex: 1, display: { xs: 'none', md: 'flex' }, py: 0.5, ml: 1 }}>
+          <Stack direction="row" spacing={0.25} sx={{ flex: 1, minWidth: 0, display: { xs: 'none', lg: 'flex' }, py: 0.5, ml: 1 }}>
             {navItems}
           </Stack>
-          <Box sx={{ flex: { xs: 1, md: 0 } }} />
+          <Box sx={{ flex: { xs: 1, lg: 0 } }} />
           <Tooltip title="Registrar resultado">
             <Button
               variant="contained"
               onClick={() => setLancamentoOpen(true)}
-              sx={{ display: { xs: 'inline-flex', md: 'none' }, minWidth: 40, px: 1 }}
+              sx={{ display: { xs: 'inline-flex', lg: 'none' }, minWidth: 40, px: 1 }}
               aria-label="Registrar resultado"
             >
               <TrendingUpOutlinedIcon fontSize="small" />
@@ -179,19 +184,30 @@ export function AppShell({ children, ano, mes }: Props) {
             variant="contained"
             startIcon={<TrendingUpOutlinedIcon />}
             onClick={() => setLancamentoOpen(true)}
-            sx={{ display: { xs: 'none', md: 'inline-flex' }, whiteSpace: 'nowrap' }}
+            sx={{ display: { xs: 'none', lg: 'inline-flex' }, whiteSpace: 'nowrap', flexShrink: 0 }}
           >
             Registrar resultado
           </Button>
-          <Stack direction="row" spacing={{ xs: 0.75, md: 1.25 }} sx={{ alignItems: 'center', flexShrink: 0 }}>
-            <Stack
-              component={RouterLink}
-              to="/conta"
-              direction="row"
-              spacing={{ xs: 0.75, md: 1.25 }}
-              sx={{ alignItems: 'center', textDecoration: 'none', color: 'inherit' }}
-            >
-              <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+          <Button
+            color="inherit"
+            onClick={(e) => setUserMenuEl(e.currentTarget)}
+            aria-label="Menu da conta"
+            aria-haspopup="menu"
+            aria-expanded={userMenuOpen}
+            aria-controls={userMenuOpen ? 'menu-conta' : undefined}
+            sx={{
+              flexShrink: 0,
+              minWidth: 0,
+              px: { xs: 0.25, lg: 1 },
+              py: 0.5,
+              borderRadius: 8,
+              textTransform: 'none',
+              color: 'inherit',
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.06)' },
+            }}
+          >
+            <Stack direction="row" spacing={{ xs: 0.75, lg: 1.25 }} sx={{ alignItems: 'center' }}>
+              <Box sx={{ textAlign: 'right', display: { xs: 'none', lg: 'block' } }}>
                 <Typography variant="body2" sx={{ fontWeight: 600, color: '#fff', lineHeight: 1.2, fontSize: 13 }}>
                   {user.name}
                 </Typography>
@@ -203,12 +219,41 @@ export function AppShell({ children, ano, mes }: Props) {
                 {user.name.slice(0, 1)}
               </Avatar>
             </Stack>
-            <Tooltip title="Sair">
-              <IconButton color="inherit" onClick={() => void handleLogout()} aria-label="Sair" sx={{ display: { xs: 'none', sm: 'inline-flex' } }}>
+          </Button>
+          <Menu
+            id="menu-conta"
+            anchorEl={userMenuEl}
+            open={userMenuOpen}
+            onClose={() => setUserMenuEl(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            slotProps={{ paper: { sx: { minWidth: 200, mt: 1 } } }}
+          >
+            <MenuItem
+              component={RouterLink}
+              to="/conta"
+              onClick={() => setUserMenuEl(null)}
+            >
+              <ListItemIcon>{navConta.icon}</ListItemIcon>
+              {navConta.label}
+            </MenuItem>
+            <MenuItem
+              component={RouterLink}
+              to="/meus-resultados"
+              onClick={() => setUserMenuEl(null)}
+            >
+              <ListItemIcon>
+                <InsightsOutlinedIcon fontSize="small" />
+              </ListItemIcon>
+              Meus resultados
+            </MenuItem>
+            <MenuItem onClick={() => void handleLogout()}>
+              <ListItemIcon>
                 <LogoutIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Stack>
+              </ListItemIcon>
+              Sair
+            </MenuItem>
+          </Menu>
         </Toolbar>
       </AppBar>
 
@@ -236,15 +281,8 @@ export function AppShell({ children, ano, mes }: Props) {
             <CloseOutlinedIcon />
           </IconButton>
         </Stack>
-        <Box sx={{ px: 2, pb: 2, display: { xs: 'block', sm: 'none' } }}>
-          <Stack
-            component={RouterLink}
-            to="/conta"
-            direction="row"
-            spacing={1.5}
-            onClick={() => setNavOpen(false)}
-            sx={{ alignItems: 'center', textDecoration: 'none', color: 'inherit' }}
-          >
+        <Box sx={{ px: 2, pb: 2 }}>
+          <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
             <Avatar sx={{ bgcolor: '#00A8E8', color: '#0A1128', width: 40, height: 40, fontWeight: 700 }}>
               {user.name.slice(0, 1)}
             </Avatar>
@@ -290,12 +328,8 @@ export function AppShell({ children, ano, mes }: Props) {
               setNavOpen(false)
               setLancamentoOpen(true)
             }}
-            sx={{ mb: 1.5 }}
           >
             Registrar resultado
-          </Button>
-          <Button fullWidth color="inherit" startIcon={<LogoutIcon />} onClick={() => void handleLogout()}>
-            Sair
           </Button>
         </Box>
       </Drawer>

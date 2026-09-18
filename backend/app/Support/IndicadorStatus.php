@@ -4,7 +4,7 @@ namespace App\Support;
 
 class IndicadorStatus
 {
-    public static function percentual(float $realizado, float $meta, string $sentido): float
+    public static function percentual(float $realizado, float $meta, string $sentido, bool $limitar = true): float
     {
         if ($meta <= 0) {
             return 0.0;
@@ -15,10 +15,14 @@ class IndicadorStatus
                 return 100.0;
             }
 
-            return round(min(($meta / $realizado) * 100, 100), 1);
+            $valor = ($meta / $realizado) * 100;
+
+            return round($limitar ? min($valor, 100) : $valor, 1);
         }
 
-        return round(min(($realizado / $meta) * 100, 100), 1);
+        $valor = ($realizado / $meta) * 100;
+
+        return round($limitar ? min($valor, 100) : $valor, 1);
     }
 
     public static function status(float $percentual): string

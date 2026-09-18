@@ -15,7 +15,7 @@ export function ColumnMetaChart({ meta }: { meta: DashboardMeta }) {
       layout="horizontal"
       height={Math.max(160, labels.length * 42)}
       yAxis={[{ data: labels, scaleType: 'band' }]}
-      xAxis={[{ min: 0, max: 100, label: '%' }]}
+      xAxis={[{ min: 0, max: Math.max(100, ...values), label: '%' }]}
       series={[{ data: values, label: '% atingido', color: meta.chart.cor }]}
       colors={colors}
       margin={{ left: 80, right: 16, top: 8, bottom: 32 }}
