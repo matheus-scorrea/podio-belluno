@@ -34,12 +34,8 @@ type EscopoNomes = {
 }
 
 export function escopoAtribuicaoNomes(meta: EscopoNomes): string[] {
-  if (meta.tipo_escopo === 'global') {
-    return []
-  }
-
   const nomes =
-    meta.tipo_escopo === 'departamento'
+    meta.tipo_escopo === 'departamento' || meta.tipo_escopo === 'global'
       ? (meta.departamentos ?? []).map((item) => item.nome)
       : meta.tipo_escopo === 'cargo'
         ? (meta.cargos ?? []).map((item) => item.nome)

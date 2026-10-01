@@ -16,6 +16,7 @@ import {
 } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
+import { useAuth } from '../auth/useAuth'
 import { api } from '../api/client'
 import { ResultadosAnoChart } from '../charts/ResultadosAnoChart'
 import { EmptyState } from '../components/EmptyState'
@@ -31,7 +32,8 @@ import type { MeusResultadosMes, MeusResultadosResponse } from '../types'
 const ANOS = [2025, 2026, 2027]
 
 export function MeusResultadosPage() {
-  const [ano, setAno] = useState(2026)
+  const { user } = useAuth()
+  const [ano, setAno] = useState(() => new Date().getFullYear())
   const [abertos, setAbertos] = useState<number[]>([])
 
   const { data, isLoading } = useQuery({
@@ -48,11 +50,17 @@ export function MeusResultadosPage() {
     setAbertos((atual) => (atual.includes(mes) ? atual.filter((item) => item !== mes) : [...atual, mes]))
   }
 
+  const visaoEmpresa = data?.visao === 'empresa' || user?.is_direcao === true
+
   return (
     <AppShell ano={ano} mes={data?.meses.at(-1)?.mes ?? 9}>
       <PageHeader
-        title="Meus resultados"
-        subtitle="Sua evolução mês a mês: setor, cargo, metas batidas e bônus."
+        title={visaoEmpresa ? 'Resultados da empresa' : 'Meus resultados'}
+        subtitle={
+          visaoEmpresa
+            ? 'Evolução da empresa mês a mês: metas batidas e bônus de todo o time.'
+            : 'Sua evolução mês a mês: setor, cargo, metas batidas e bônus.'
+        }
       />
       <FilterBar>
         <FormControl size="small">
@@ -98,7 +106,7 @@ export function MeusResultadosPage() {
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <KpiCard label="Total ganho" value={formatBonus(data?.kpis.total_bonus)} />
+              <KpiCard label={visaoEmpresa ? 'Total de bônus' : 'Total ganho'} value={formatBonus(data?.kpis.total_bonus)} />
             </Grid>
           </Grid>
 
@@ -118,13 +126,24 @@ export function MeusResultadosPage() {
             <Paper>
               <EmptyState
                 title="Nenhuma competência neste ano"
-                description="Quando houver metas no seu recorte, o mês aparece aqui com o retrato de setor e cargo."
+                description={
+                  visaoEmpresa
+                    ? 'Quando houver metas cadastradas, o mês aparece aqui com o consolidado da empresa.'
+                    : 'Quando houver metas no seu recorte, o mês aparece aqui com o retrato de setor e cargo.'
+                }
               />
             </Paper>
           ) : (
             <Stack spacing={1.5}>
               {(data?.meses ?? []).map((mes) => (
-                <MesCard key={mes.mes} mes={mes} ano={ano} aberto={abertos.includes(mes.mes)} onToggle={() => toggle(mes.mes)} />
+                <MesCard
+                  key={mes.mes}
+                  mes={mes}
+                  ano={ano}
+                  visaoEmpresa={visaoEmpresa}
+                  aberto={abertos.includes(mes.mes)}
+                  onToggle={() => toggle(mes.mes)}
+                />
               ))}
             </Stack>
           )}
@@ -137,11 +156,13 @@ export function MeusResultadosPage() {
 function MesCard({
   mes,
   ano,
+  visaoEmpresa,
   aberto,
   onToggle,
 }: {
   mes: MeusResultadosMes
   ano: number
+  visaoEmpresa: boolean
   aberto: boolean
   onToggle: () => void
 }) {
@@ -180,7 +201,9 @@ function MesCard({
               {competenciaLabel(mes.mes, ano)}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {[mes.departamento, mes.cargo].filter(Boolean).join(' · ') || 'Sem setor ou cargo neste mês'}
+              {visaoEmpresa
+                ? 'Toda a empresa'
+                : [mes.departamento, mes.cargo].filter(Boolean).join(' · ') || 'Sem setor ou cargo neste mês'}
             </Typography>
           </Box>
         </Stack>
@@ -193,13 +216,13 @@ function MesCard({
         <Box sx={{ px: { xs: 2, sm: 2.5 }, pb: 2 }}>
           {mes.itens.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
-              Nenhuma meta no seu recorte nesta competência.
+              {visaoEmpresa ? 'Nenhuma meta nesta competência.' : 'Nenhuma meta no seu recorte nesta competência.'}
             </Typography>
           ) : (
             <Stack spacing={1}>
-              {mes.itens.map((item) => (
+              {mes.itens.map((item, indice) => (
                 <Stack
-                  key={item.meta_id}
+                  key={`${item.meta_id}-${item.departamentos?.[0]?.nome ?? indice}`}
                   direction={{ xs: 'column', sm: 'row' }}
                   spacing={1}
                   sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' }, py: 0.5 }}
@@ -207,7 +230,12 @@ function MesCard({
                   <Box sx={{ minWidth: 0 }}>
                     <Typography variant="body2">{item.titulo}</Typography>
                     <Stack direction="row" spacing={0.75} sx={{ mt: 0.4, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <EscopoAtribuicao tipo={item.tipo_escopo} />
+                      <EscopoAtribuicao
+                        tipo={item.tipo_escopo}
+                        departamentos={item.departamentos}
+                        cargos={item.cargos}
+                        usuarios={item.usuarios}
+                      />
                       <Chip
                         size="small"
                         label={item.bateu ? 'Bateu' : 'Pendente'}

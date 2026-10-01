@@ -17,6 +17,7 @@ class ResultadosService
      */
     public function montar(User $user, int $ano): array
     {
+        $empresa = $user->is_direcao;
         $mesesComMeta = MetaCompetencia::query()
             ->where('ano', $ano)
             ->distinct()
@@ -25,6 +26,21 @@ class ResultadosService
 
         $meses = [];
         foreach ($mesesComMeta as $mes) {
+            if ($empresa) {
+                $itens = $this->fechamento->itensDaEmpresa($ano, (int) $mes);
+                $meses[] = [
+                    'mes' => (int) $mes,
+                    'departamento' => 'Empresa',
+                    'cargo' => null,
+                    'bonus_total' => round((float) collect($itens)->sum('valor_bonus'), 2),
+                    'batidas' => collect($itens)->where('bateu', true)->count(),
+                    'total_metas' => count($itens),
+                    'itens' => $itens,
+                ];
+
+                continue;
+            }
+
             $retrato = $this->garantirRetrato($user, $ano, (int) $mes);
             $retrato->load(['departamento', 'cargo']);
             $itens = $this->fechamento->itensDoUsuario($user, $ano, (int) $mes);
@@ -47,6 +63,7 @@ class ResultadosService
 
         return [
             'ano' => $ano,
+            'visao' => $empresa ? 'empresa' : 'me',
             'kpis' => [
                 'meses_com_meta' => count($meses),
                 'metas' => $totalMetas,

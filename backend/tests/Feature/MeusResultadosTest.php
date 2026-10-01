@@ -25,6 +25,109 @@ class MeusResultadosTest extends TestCase
         $this->actingAs($org['direcao'])->getJson('/api/me/resultados?ano=2026')->assertOk();
     }
 
+    public function test_direcao_ve_o_consolidado_da_empresa(): void
+    {
+        $org = $this->createOrg();
+        $ana = $this->metaIndividual($org, 100, 'Meta da Ana');
+        $this->bater($ana);
+
+        $colega = User::factory()->create([
+            'departamento_id' => $org['dept']->id,
+            'cargo_id' => $org['comumCargo']->id,
+        ]);
+        $metaColega = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'individual',
+            'titulo' => 'Meta do colega',
+            'valor_bonus' => 80,
+        ]);
+        $metaColega->usuarios()->sync([$colega->id]);
+        $this->bater($metaColega);
+
+        $setor = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'departamento',
+            'titulo' => 'Meta do setor',
+            'valor_bonus' => 50,
+        ]);
+        $setor->departamentos()->sync([$org['dept']->id]);
+        $this->bater($setor);
+
+        $rh = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'departamento',
+            'titulo' => 'Meta RH',
+            'valor_bonus' => 40,
+        ]);
+        $rh->departamentos()->sync([$org['outro']->id]);
+        $this->bater($rh);
+
+        $empresa = $this->actingAs($org['direcao'])->getJson('/api/me/resultados?ano=2026');
+        $itens = collect($empresa->json('meses.0.itens'))->keyBy('titulo');
+        $fechamento = $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9');
+
+        $empresa->assertOk()
+            ->assertJsonPath('visao', 'empresa')
+            ->assertJsonPath('meses.0.departamento', 'Empresa')
+            ->assertJsonPath('kpis.total_bonus', 370);
+
+        $this->assertEquals($fechamento->json('total_bonus'), $empresa->json('meses.0.bonus_total'));
+        $this->assertTrue($itens->has('Meta da Ana'));
+        $this->assertTrue($itens->has('Meta do colega'));
+        $this->assertTrue($itens->has('Meta do setor'));
+        $this->assertTrue($itens->has('Meta RH'));
+        $this->assertEquals(100, $itens['Meta da Ana']['valor_bonus']);
+        $this->assertEquals(80, $itens['Meta do colega']['valor_bonus']);
+        $this->assertEquals(150, $itens['Meta do setor']['valor_bonus']);
+        $this->assertEquals(40, $itens['Meta RH']['valor_bonus']);
+        $this->assertSame('RH', $itens['Meta RH']['departamentos'][0]['nome']);
+
+        $this->assertDatabaseMissing('usuario_competencias', [
+            'user_id' => $org['direcao']->id,
+            'ano' => 2026,
+            'mes' => 9,
+        ]);
+
+        $pessoal = $this->actingAs($org['colaborador'])->getJson('/api/me/resultados?ano=2026');
+        $titulos = collect($pessoal->json('meses.0.itens'))->pluck('titulo');
+
+        $pessoal->assertOk()->assertJsonPath('visao', 'me');
+        $this->assertTrue($titulos->contains('Meta da Ana'));
+        $this->assertFalse($titulos->contains('Meta do colega'));
+        $this->assertEquals(150, $pessoal->json('kpis.total_bonus'));
+    }
+
+    public function test_direcao_ve_comparativa_global_separada_por_setor(): void
+    {
+        $org = $this->createOrg();
+        $meta = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'global',
+            'chart_tipo' => 'column',
+            'titulo' => 'Comparativa empresa',
+            'valor_bonus' => 100,
+        ]);
+
+        $this->actingAs($org['direcao'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 100,
+            'data_evento' => '2026-09-09',
+            'departamento_id' => $org['dept']->id,
+        ])->assertCreated();
+
+        $itens = collect(
+            $this->actingAs($org['direcao'])->getJson('/api/me/resultados?ano=2026')->json('meses.0.itens')
+        )->where('titulo', 'Comparativa empresa');
+        $ti = $itens->first(fn (array $item) => collect($item['departamentos'] ?? [])->contains('nome', 'TI'));
+        $rh = $itens->first(fn (array $item) => collect($item['departamentos'] ?? [])->contains('nome', 'RH'));
+
+        $this->assertNotNull($ti);
+        $this->assertNotNull($rh);
+        $this->assertTrue($ti['bateu']);
+        $this->assertEquals(200, $ti['valor_bonus']);
+        $this->assertFalse($rh['bateu']);
+        $this->assertEquals(0, $rh['valor_bonus']);
+    }
+
     public function test_colaborador_nao_ve_meta_de_outra_pessoa(): void
     {
         $org = $this->createOrg();

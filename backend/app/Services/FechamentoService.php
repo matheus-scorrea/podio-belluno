@@ -124,6 +124,126 @@ class FechamentoService
     }
 
     /**
+     * Todas as metas da competência, com bônus somado entre os beneficiários.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function itensDaEmpresa(int $ano, int $mes): array
+    {
+        $metas = Meta::query()
+            ->with(['departamentos', 'cargos', 'usuarios'])
+            ->competencia($ano, $mes)
+            ->orderBy('titulo')
+            ->get();
+
+        $ativos = User::query()
+            ->where('ativo', true)
+            ->with(['departamento', 'cargo'])
+            ->get()
+            ->keyBy('id');
+
+        $itens = [];
+        foreach ($metas as $meta) {
+            $this->competencias->hidratar($meta, $ano, $mes);
+            $series = $meta->isComparativa() ? $this->series($meta, $ano, $mes) : collect();
+            $beneficiarios = $this->beneficiarios($meta, $ativos);
+
+            if ($meta->isComparativa() && $series->isNotEmpty()) {
+                foreach ($series as $grao) {
+                    $pessoas = $beneficiarios->filter(
+                        fn (User $u) => $this->usuarioNoGrao($u, $meta, $grao)
+                    );
+                    $linhas = $pessoas
+                        ->map(fn (User $u) => $this->itemMetaParaUsuario($u, $meta, $ano, $mes, $series))
+                        ->values();
+                    $itens[] = $this->consolidarItemMeta(
+                        $meta,
+                        $linhas,
+                        is_string($grao['label'] ?? null) ? $grao['label'] : null,
+                        (float) ($grao['percentual'] ?? 0),
+                    );
+                }
+
+                continue;
+            }
+
+            $linhas = $beneficiarios
+                ->map(fn (User $beneficiario) => $this->itemMetaParaUsuario($beneficiario, $meta, $ano, $mes, $series))
+                ->values();
+            $itens[] = $this->consolidarItemMeta($meta, $linhas);
+        }
+
+        return collect($itens)->sortBy('titulo', SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $linhas
+     * @return array<string, mixed>
+     */
+    private function consolidarItemMeta(Meta $meta, Collection $linhas, ?string $rotuloSetor = null, ?float $percentualGrao = null): array
+    {
+        $niveis = $linhas
+            ->where('bateu', true)
+            ->pluck('nivel')
+            ->filter()
+            ->unique()
+            ->values();
+        $departamentos = $meta->departamentos->map(fn ($d) => ['nome' => $d->nome])->values()->all();
+        $cargos = $meta->cargos->map(fn ($c) => ['nome' => $c->nome])->values()->all();
+        $usuarios = [];
+        if ($rotuloSetor !== null) {
+            match ($meta->tipo_escopo) {
+                'cargo' => $cargos = [['nome' => $rotuloSetor]],
+                'individual' => $usuarios = [['name' => $rotuloSetor]],
+                default => $departamentos = [['nome' => $rotuloSetor]],
+            };
+        }
+
+        if ($linhas->isEmpty()) {
+            $percentual = $percentualGrao ?? $meta->percentual();
+
+            return [
+                'meta_id' => $meta->id,
+                'titulo' => $meta->titulo,
+                'tipo_escopo' => $meta->tipo_escopo,
+                'percentual' => $percentual,
+                'bateu' => $percentual + 0.00001 >= $meta->pisoBonus(),
+                'valor_bonus' => 0.0,
+                'nivel' => null,
+                'departamentos' => $departamentos,
+                'cargos' => $cargos,
+                'usuarios' => $usuarios,
+            ];
+        }
+
+        return [
+            'meta_id' => $meta->id,
+            'titulo' => $meta->titulo,
+            'tipo_escopo' => $meta->tipo_escopo,
+            'percentual' => round((float) $linhas->avg('percentual'), 1),
+            'bateu' => $linhas->contains(fn (array $linha) => $linha['bateu']),
+            'valor_bonus' => round((float) $linhas->sum('valor_bonus'), 2),
+            'nivel' => $niveis->count() === 1 ? $niveis->first() : null,
+            'departamentos' => $departamentos,
+            'cargos' => $cargos,
+            'usuarios' => $usuarios,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $grao
+     */
+    private function usuarioNoGrao(User $user, Meta $meta, array $grao): bool
+    {
+        return match ($meta->tipo_escopo) {
+            'individual' => (int) $user->id === (int) ($grao['usuario_alvo_id'] ?? 0),
+            'cargo' => (int) $user->cargo_id === (int) ($grao['cargo_id'] ?? 0),
+            'departamento', 'global' => (int) $user->departamento_id === (int) ($grao['departamento_id'] ?? 0),
+            default => false,
+        };
+    }
+
+    /**
      * @param  Collection<int, array<string, mixed>>  $series
      * @return array<string, mixed>
      */
@@ -271,6 +391,7 @@ class FechamentoService
                 'departamento_id' => $grao['departamento_id'] ?? null,
                 'cargo_id' => $grao['cargo_id'] ?? null,
                 'usuario_alvo_id' => $grao['usuario_alvo_id'] ?? null,
+                'label' => $grao['label'] ?? null,
                 'valor' => $valor,
                 'percentual' => IndicadorStatus::percentual($valor, $alvo, $meta->sentido, ! $meta->atingimentoSemTeto()),
             ];

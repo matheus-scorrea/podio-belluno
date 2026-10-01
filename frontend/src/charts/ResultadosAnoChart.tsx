@@ -153,10 +153,11 @@ function montarSeries(meses: MeusResultadosMes[]) {
     stack: 'bonus',
     yAxisId: 'bonus',
     color: CORES[indice % CORES.length],
-    data: mesesOrdenados.map((mes) => {
-      const item = mes.itens.find((it) => it.meta_id === id)
-      return item?.bateu ? item.valor_bonus : 0
-    }),
+    data: mesesOrdenados.map((mes) =>
+      mes.itens
+        .filter((it) => it.meta_id === id && it.bateu)
+        .reduce((soma, it) => soma + it.valor_bonus, 0)
+    ),
     valueFormatter: (valor: number | null) => (valor ? formatBonus(valor) : null),
   }))
 

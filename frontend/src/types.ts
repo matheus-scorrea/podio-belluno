@@ -201,6 +201,9 @@ export type MeusResultadosItem = {
   bateu: boolean
   valor_bonus: number
   nivel?: string | null
+  departamentos?: { nome: string }[]
+  cargos?: { nome: string }[]
+  usuarios?: { name: string }[]
 }
 
 export type MeusResultadosMes = {
@@ -223,6 +226,7 @@ export type MeusResultadosKpis = {
 
 export type MeusResultadosResponse = {
   ano: number
+  visao?: 'me' | 'empresa'
   kpis: MeusResultadosKpis
   meses: MeusResultadosMes[]
 }

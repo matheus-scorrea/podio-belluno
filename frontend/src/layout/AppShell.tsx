@@ -245,7 +245,7 @@ export function AppShell({ children, ano, mes }: Props) {
               <ListItemIcon>
                 <InsightsOutlinedIcon fontSize="small" />
               </ListItemIcon>
-              Meus resultados
+              {user?.is_direcao ? 'Resultados da empresa' : 'Meus resultados'}
             </MenuItem>
             <MenuItem onClick={() => void handleLogout()}>
               <ListItemIcon>
