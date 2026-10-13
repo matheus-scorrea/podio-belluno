@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Cargo;
 use App\Models\Meta;
+use App\Models\MetaLancamento;
 use App\Models\User;
 use App\Support\MetasMarco;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -1067,5 +1068,62 @@ class MetaRbacTest extends TestCase
             [],
             collect($lista->firstWhere('titulo', 'Meta empresa')['departamentos'] ?? [])->all(),
         );
+    }
+
+    public function test_excluir_um_mes_clonado_preserva_os_anteriores(): void
+    {
+        $org = $this->createOrg();
+
+        $this->actingAs($org['direcao'])->postJson('/api/metas', [
+            'titulo' => 'Tempo de resposta',
+            'ano' => 2026,
+            'mes' => 9,
+            'tipo_escopo' => 'global',
+            'valor_meta' => 24,
+            'unidade' => '%',
+            'sentido' => 'maior_melhor',
+            'chart_tipo' => 'gauge',
+            'chart_cor' => '#00A8E8',
+        ])->assertCreated();
+
+        $meta = Meta::query()->where('titulo', 'Tempo de resposta')->firstOrFail();
+        $this->actingAs($org['direcao'])->postJson('/api/metas/abrir-competencia', [
+            'ano' => 2026,
+            'mes' => 10,
+        ])->assertOk();
+
+        MetaLancamento::query()->create([
+            'meta_id' => $meta->id,
+            'data_evento' => '2026-09-10',
+            'valor_realizado' => 8,
+            'lancado_por' => $org['direcao']->id,
+        ]);
+        MetaLancamento::query()->create([
+            'meta_id' => $meta->id,
+            'data_evento' => '2026-10-10',
+            'valor_realizado' => 4,
+            'lancado_por' => $org['direcao']->id,
+        ]);
+
+        $this->actingAs($org['direcao'])
+            ->deleteJson("/api/metas/{$meta->id}?ano=2026&mes=10")
+            ->assertNoContent();
+
+        $this->assertNotSoftDeleted($meta);
+        $this->assertDatabaseHas('meta_competencias', ['meta_id' => $meta->id, 'ano' => 2026, 'mes' => 9]);
+        $this->assertDatabaseMissing('meta_competencias', ['meta_id' => $meta->id, 'ano' => 2026, 'mes' => 10]);
+        $this->assertDatabaseHas('meta_lancamentos', ['meta_id' => $meta->id, 'data_evento' => '2026-09-10 00:00:00']);
+        $this->assertDatabaseMissing('meta_lancamentos', ['meta_id' => $meta->id, 'data_evento' => '2026-10-10 00:00:00']);
+
+        $setembro = collect($this->actingAs($org['direcao'])->getJson('/api/metas?ano=2026&mes=9')->json());
+        $outubro = collect($this->actingAs($org['direcao'])->getJson('/api/metas?ano=2026&mes=10')->json());
+        $this->assertNotNull($setembro->firstWhere('titulo', 'Tempo de resposta'));
+        $this->assertNull($outubro->firstWhere('titulo', 'Tempo de resposta'));
+
+        $this->actingAs($org['direcao'])
+            ->deleteJson("/api/metas/{$meta->id}?ano=2026&mes=9")
+            ->assertNoContent();
+
+        $this->assertSoftDeleted($meta);
     }
 }

@@ -117,10 +117,33 @@ class MetaController extends Controller
         return $this->detalhar($meta->fresh(), (int) $data['ano'], (int) $data['mes']);
     }
 
-    public function destroy(Meta $meta)
+    public function destroy(Request $request, Meta $meta)
     {
         $this->authorize('delete', $meta);
-        $meta->delete();
+
+        $ano = $request->integer('ano');
+        $mes = $request->integer('mes');
+        if ($ano < 2020 || $ano > 2100 || $mes < 1 || $mes > 12) {
+            abort(422, 'Informe a competência a excluir.');
+        }
+
+        $competencia = $meta->competencias()->where('ano', $ano)->where('mes', $mes)->first();
+        if ($competencia === null) {
+            abort(404);
+        }
+
+        $competencia->delete();
+        $meta->lancamentos()
+            ->whereYear('data_evento', $ano)
+            ->whereMonth('data_evento', $mes)
+            ->delete();
+
+        $restantes = $meta->competencias()->orderBy('ano')->orderBy('mes')->get(['ano', 'mes'])
+            ->map(fn ($c) => ['ano' => $c->ano, 'mes' => $c->mes])
+            ->all();
+        if ($restantes === []) {
+            $meta->delete();
+        }
 
         return response()->noContent();
     }

@@ -95,7 +95,7 @@ export function MetasListPage() {
   })
 
   const del = useMutation({
-    mutationFn: async (id: number) => api.delete(`/metas/${id}`),
+    mutationFn: async (id: number) => api.delete(`/metas/${id}`, { params: { ano, mes } }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['metas'] })
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
@@ -279,7 +279,9 @@ export function MetasListPage() {
         <DialogTitle>Excluir meta?</DialogTitle>
         <DialogContent>
           <Typography>
-            A meta “{toDelete?.titulo}” deixa de existir em todas as competências, não só neste mês.
+            {toDelete && (toDelete.competencias_count ?? 1) > 1
+              ? `“${toDelete.titulo}” sai só de ${competenciaLabel(mes, ano)}. Os outros meses continuam.`
+              : `“${toDelete?.titulo}” existe só neste mês e deixa de existir.`}
           </Typography>
         </DialogContent>
         <DialogActions>
