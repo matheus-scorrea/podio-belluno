@@ -9,6 +9,11 @@ export function competenciaLabel(mes: number, ano: number): string {
   return `${MESES[mes - 1] ?? mes} / ${ano}`
 }
 
+export function competenciaVigente(): { ano: number; mes: number } {
+  const hoje = new Date()
+  return { ano: hoje.getFullYear(), mes: hoje.getMonth() + 1 }
+}
+
 export const TIPOS_ESCOPO: TipoEscopo[] = ['global', 'departamento', 'cargo', 'individual']
 
 export function escopoLabel(escopo: TipoEscopo | string): string {

@@ -26,7 +26,7 @@ import { FilterBar } from '../components/FilterBar'
 import { KpiCard } from '../components/KpiCard'
 import { PageHeader } from '../components/PageHeader'
 import { AppShell } from '../layout/AppShell'
-import { competenciaLabel, formatBonus } from '../lib/labels'
+import { competenciaLabel, competenciaVigente, formatBonus } from '../lib/labels'
 import type { MeusResultadosMes, MeusResultadosResponse } from '../types'
 
 const ANOS = [2025, 2026, 2027]
@@ -53,7 +53,7 @@ export function MeusResultadosPage() {
   const visaoEmpresa = data?.visao === 'empresa' || user?.is_direcao === true
 
   return (
-    <AppShell ano={ano} mes={data?.meses.at(-1)?.mes ?? 9}>
+    <AppShell ano={ano} mes={competenciaVigente().mes}>
       <PageHeader
         title={visaoEmpresa ? 'Resultados da empresa' : 'Meus resultados'}
         subtitle={

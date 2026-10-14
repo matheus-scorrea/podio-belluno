@@ -32,6 +32,7 @@ import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { hideColXs, ResponsiveTable } from '../components/ResponsiveTable'
 import { AppShell } from '../layout/AppShell'
+import { competenciaVigente } from '../lib/labels'
 import type { AuthUser, ConviteAcesso } from '../types'
 
 type AcaoUsuario = 'inativar' | 'ativar' | 'excluir' | 'convite'
@@ -89,8 +90,10 @@ export function UsuariosPage() {
     return <Navigate to="/" replace />
   }
 
+  const { ano, mes } = competenciaVigente()
+
   return (
-    <AppShell ano={2026} mes={9}>
+    <AppShell ano={ano} mes={mes}>
       <PageHeader
         title="Usuários"
         subtitle="Contas da Direção, líderes e colaboradores. Gere a senha e o texto para enviar no chat."

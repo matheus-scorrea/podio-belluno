@@ -33,6 +33,7 @@ import { api } from '../api/client'
 import { useAuth } from '../auth/useAuth'
 import { PageHeader } from '../components/PageHeader'
 import { AppShell } from '../layout/AppShell'
+import { competenciaVigente } from '../lib/labels'
 import type { Departamento } from '../types'
 
 type CargoLinha = {
@@ -162,8 +163,10 @@ export function DepartamentoFormPage() {
     return <Navigate to="/" replace />
   }
 
+  const { ano, mes } = competenciaVigente()
+
   return (
-    <AppShell ano={2026} mes={9}>
+    <AppShell ano={ano} mes={mes}>
       <PageHeader
         title={isEdit ? 'Editar setor' : 'Novo setor'}
         subtitle="O setor reúne os cargos. Marque um cargo ativo como líder — é quem registra o resultado da área."

@@ -40,7 +40,7 @@ import { PageHeader } from '../components/PageHeader'
 import { AppShell } from '../layout/AppShell'
 import { nivelEmBranco, TABELA_BELLUNO, type NivelComissao } from '../lib/comissao'
 import { faixaEmBranco, TABELA_SDR_REUNIOES, type NivelFaixa } from '../lib/faixaUnidade'
-import { formatBonus, MESES } from '../lib/labels'
+import { competenciaVigente, formatBonus, MESES } from '../lib/labels'
 import { cargosParaEscopo, departamentosParaSelect } from '../lib/organizacao'
 import type { AuthUser, Cargo, ChartTipo, Departamento, MetaDetail, ModoBonus, Sentido, TipoEscopo } from '../types'
 
@@ -249,8 +249,9 @@ export function MetaStepperPage() {
   const [active, setActive] = useState(0)
   const [titulo, setTitulo] = useState('')
   const [descricao, setDescricao] = useState('')
-  const [ano, setAno] = useState(2026)
-  const [mes, setMes] = useState(9)
+  const vigente = competenciaVigente()
+  const [ano, setAno] = useState(vigente.ano)
+  const [mes, setMes] = useState(vigente.mes)
   const [unidade, setUnidade] = useState('%')
   const [valorMeta, setValorMeta] = useState('100')
   const [valorBonus, setValorBonus] = useState('0')

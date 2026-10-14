@@ -32,15 +32,16 @@ import { KpiCard } from '../components/KpiCard'
 import { PageHeader } from '../components/PageHeader'
 import { hideColXs, ResponsiveTable } from '../components/ResponsiveTable'
 import { AppShell } from '../layout/AppShell'
-import { competenciaLabel, formatBonus, MESES } from '../lib/labels'
+import { competenciaLabel, competenciaVigente, formatBonus, MESES } from '../lib/labels'
 import { departamentosParaSelect } from '../lib/organizacao'
 import type { Departamento, FechamentoResponse } from '../types'
 
 export function FechamentoPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [ano, setAno] = useState(2026)
-  const [mes, setMes] = useState(9)
+  const vigente = competenciaVigente()
+  const [ano, setAno] = useState(vigente.ano)
+  const [mes, setMes] = useState(vigente.mes)
   const [departamentoId, setDepartamentoId] = useState<number | ''>('')
   const [abertos, setAbertos] = useState<number[]>([])
 
@@ -87,8 +88,8 @@ export function FechamentoPage() {
             }}
           >
             {MESES.map((nome, idx) => (
-              <MenuItem key={nome} value={`${idx + 1}/2026`}>
-                {nome} / 2026
+              <MenuItem key={nome} value={`${idx + 1}/${ano}`}>
+                {nome} / {ano}
               </MenuItem>
             ))}
           </Select>

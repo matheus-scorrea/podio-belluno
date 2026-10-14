@@ -24,6 +24,7 @@ import { useAuth } from '../auth/useAuth'
 import { ConviteAcessoDialog } from '../components/ConviteAcessoDialog'
 import { PageHeader } from '../components/PageHeader'
 import { AppShell } from '../layout/AppShell'
+import { competenciaVigente } from '../lib/labels'
 import { cargosDoSetor, departamentosParaSelect } from '../lib/organizacao'
 import type { AuthUser, ConviteAcesso, Departamento } from '../types'
 
@@ -130,8 +131,10 @@ export function UsuarioFormPage() {
     return <Navigate to="/" replace />
   }
 
+  const { ano, mes } = competenciaVigente()
+
   return (
-    <AppShell ano={2026} mes={9}>
+    <AppShell ano={ano} mes={mes}>
       <PageHeader
         title={isEdit ? 'Editar usuário' : 'Novo usuário'}
         subtitle={

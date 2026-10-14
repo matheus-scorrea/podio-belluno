@@ -21,6 +21,7 @@ import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { hideColXs, ResponsiveTable } from '../components/ResponsiveTable'
 import { AppShell } from '../layout/AppShell'
+import { competenciaVigente } from '../lib/labels'
 import type { Departamento } from '../types'
 
 export function DepartamentosPage() {
@@ -35,8 +36,10 @@ export function DepartamentosPage() {
     return <Navigate to="/" replace />
   }
 
+  const { ano, mes } = competenciaVigente()
+
   return (
-    <AppShell ano={2026} mes={9}>
+    <AppShell ano={ano} mes={mes}>
       <PageHeader
         title="Setores"
         subtitle="Estrutura da empresa: setores, cargos e quem lidera cada área."

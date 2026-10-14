@@ -24,7 +24,7 @@ import { FilterBar } from '../components/FilterBar'
 import { KpiCard } from '../components/KpiCard'
 import { PageHeader } from '../components/PageHeader'
 import { AppShell } from '../layout/AppShell'
-import { MESES } from '../lib/labels'
+import { competenciaVigente, MESES } from '../lib/labels'
 import { departamentosParaSelect } from '../lib/organizacao'
 import type { DashboardGrupo, DashboardKpis, DashboardResponse, Departamento } from '../types'
 
@@ -37,8 +37,9 @@ function grupoKey(grupo: DashboardGrupo): string {
 export function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [ano, setAno] = useState(2026)
-  const [mes, setMes] = useState(9)
+  const vigente = competenciaVigente()
+  const [ano, setAno] = useState(vigente.ano)
+  const [mes, setMes] = useState(vigente.mes)
   const [visao, setVisao] = useState(
     user?.perfil === 'colaborador' ? 'me' : user?.perfil === 'lider' ? 'setor' : 'global',
   )
@@ -118,8 +119,8 @@ export function DashboardPage() {
               }}
             >
               {MESES.map((nome, idx) => (
-                <MenuItem key={nome} value={`${idx + 1}/2026`}>
-                  {nome} / 2026
+                <MenuItem key={nome} value={`${idx + 1}/${ano}`}>
+                  {nome} / {ano}
                 </MenuItem>
               ))}
             </Select>

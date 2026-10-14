@@ -6,6 +6,7 @@ import { useAuth } from '../auth/useAuth'
 import { CamposSenhaNova } from '../components/CamposSenhaNova'
 import { PageHeader } from '../components/PageHeader'
 import { AppShell } from '../layout/AppShell'
+import { competenciaVigente } from '../lib/labels'
 import { senhaAtendeRegras } from '../lib/senha'
 
 function erroSenha(err: unknown): string {
@@ -58,8 +59,10 @@ export function ContaPage() {
     mutation.mutate()
   }
 
+  const { ano, mes } = competenciaVigente()
+
   return (
-    <AppShell ano={2026} mes={9}>
+    <AppShell ano={ano} mes={mes}>
       <PageHeader title="Minha conta" subtitle="Seus dados de acesso. Só você redefine a sua senha por aqui." />
       <Stack spacing={3} sx={{ maxWidth: 640 }}>
         <Paper sx={{ p: { xs: 2, md: 3.5 } }}>
