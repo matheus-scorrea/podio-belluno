@@ -1,3 +1,5 @@
+import PushPinIcon from '@mui/icons-material/PushPin'
+import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Alert,
@@ -7,20 +9,32 @@ import {
   Drawer,
   FormControl,
   FormControlLabel,
+  IconButton,
   InputLabel,
   MenuItem,
   Select,
   Stack,
   Switch,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import dayjs, { type Dayjs } from 'dayjs'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { useAuth } from '../auth/useAuth'
 import type { MetaLancavel } from '../types'
+
+const PIN_KEY = 'podio.lancamento.fixar'
+
+function lerPin(): boolean {
+  try {
+    return localStorage.getItem(PIN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
 
 type Props = {
   open: boolean
@@ -39,6 +53,23 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
   const [dataEvento, setDataEvento] = useState<Dayjs>(dayjs(`${ano}-${String(mes).padStart(2, '0')}-09`))
   const [observacao, setObservacao] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [fixado, setFixado] = useState(lerPin)
+  const [salvo, setSalvo] = useState(false)
+  const pularPreenchimento = useRef(false)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PIN_KEY, fixado ? '1' : '0')
+    } catch {
+      // armazenamento indisponível
+    }
+  }, [fixado])
+
+  useEffect(() => {
+    if (!open) {
+      setSalvo(false)
+    }
+  }, [open])
 
   const { data, isLoading } = useQuery({
     queryKey: ['lancaveis', ano, mes],
@@ -63,6 +94,10 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
 
   useEffect(() => {
     if (!selected) {
+      return
+    }
+    if (pularPreenchimento.current) {
+      pularPreenchimento.current = false
       return
     }
     if (selected.chart_tipo === 'marco') {
@@ -97,12 +132,21 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       await queryClient.invalidateQueries({ queryKey: ['lancaveis'] })
+      pularPreenchimento.current = true
       setValor('')
       setValorAdesao('')
       setObservacao('')
+      setError(null)
+      if (fixado) {
+        setSalvo(true)
+        return
+      }
       onClose()
     },
-    onError: () => setError('Não foi possível salvar. Verifique os dados e a permissão.'),
+    onError: (err: unknown) => {
+      const data = (err as { response?: { data?: { message?: string; errors?: { data_evento?: string[] } } } }).response?.data
+      setError(data?.errors?.data_evento?.[0] ?? data?.message ?? 'Não foi possível salvar. Verifique os dados e a permissão.')
+    },
   })
 
   return (
@@ -125,10 +169,24 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
         },
       }}
     >
-      <Typography variant="h6">Registrar resultado</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Informe o resultado na competência em aberto. Só aparecem metas que você pode registrar.
-      </Typography>
+      <Stack direction="row" sx={{ alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+        <Box>
+          <Typography variant="h6">Registrar resultado</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Informe o resultado na competência em aberto. Só aparecem metas que você pode registrar.
+          </Typography>
+        </Box>
+        <Tooltip title={fixado ? 'Soltar painel' : 'Fixar painel'}>
+          <IconButton
+            aria-label={fixado ? 'Soltar painel' : 'Fixar painel'}
+            aria-pressed={fixado}
+            color={fixado ? 'primary' : 'default'}
+            onClick={() => setFixado((atual) => !atual)}
+          >
+            {fixado ? <PushPinIcon /> : <PushPinOutlinedIcon />}
+          </IconButton>
+        </Tooltip>
+      </Stack>
       {isLoading && <CircularProgress size={24} />}
       {!isLoading && (data?.length ?? 0) === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
@@ -140,10 +198,22 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
           {error}
         </Alert>
       )}
+      {salvo && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          Resultado registrado. Escolha outra meta para continuar.
+        </Alert>
+      )}
       <Stack spacing={2.5}>
         <FormControl fullWidth>
           <InputLabel>Meta</InputLabel>
-          <Select label="Meta" value={metaId} onChange={(e) => setMetaId(Number(e.target.value))}>
+          <Select
+            label="Meta"
+            value={metaId}
+            onChange={(e) => {
+              setSalvo(false)
+              setMetaId(Number(e.target.value))
+            }}
+          >
             {(data ?? []).map((m) => (
               <MenuItem key={m.id} value={m.id}>
                 {m.titulo}
@@ -185,7 +255,15 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
         )}
         {selected?.chart_tipo === 'marco' ? (
           <FormControlLabel
-            control={<Switch checked={valor === '1'} onChange={(e) => setValor(e.target.checked ? '1' : '0')} />}
+            control={
+              <Switch
+                checked={valor === '1'}
+                onChange={(e) => {
+                  setSalvo(false)
+                  setValor(e.target.checked ? '1' : '0')
+                }}
+              />
+            }
             label={valor === '1' ? 'Marco concluído' : 'Marco pendente'}
           />
         ) : selected?.chart_tipo === 'comissao' ? (
@@ -193,7 +271,10 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
             <TextField
               label="Valor total vendido (receita recorrente)"
               value={valor}
-              onChange={(e) => setValor(e.target.value)}
+              onChange={(e) => {
+                setSalvo(false)
+                setValor(e.target.value)
+              }}
               type="number"
               variant="filled"
               slotProps={{ input: { sx: { fontSize: 28, color: 'primary.main', fontVariantNumeric: 'tabular-nums' } } }}
@@ -211,7 +292,10 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
           <TextField
             label="Valor realizado"
             value={valor}
-            onChange={(e) => setValor(e.target.value)}
+            onChange={(e) => {
+              setSalvo(false)
+              setValor(e.target.value)
+            }}
             type="number"
             variant="filled"
             slotProps={{ input: { sx: { fontSize: 32, color: 'primary.main', fontVariantNumeric: 'tabular-nums' } } }}
