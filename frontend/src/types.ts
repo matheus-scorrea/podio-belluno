@@ -83,6 +83,8 @@ export type DashboardMeta = {
   tipo_escopo: TipoEscopo
   valor_meta: number
   valor_realizado: number
+  valor_bonus?: number
+  modo_bonus?: string
   unidade: string
   sentido: Sentido
   percentual: number

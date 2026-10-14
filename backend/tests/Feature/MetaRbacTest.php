@@ -35,7 +35,7 @@ class MetaRbacTest extends TestCase
         $this->actingAs($org['direcao'])->postJson('/api/metas', $payload)->assertCreated();
     }
 
-    public function test_bonus_fica_no_cadastro_e_nao_no_dashboard(): void
+    public function test_dashboard_mostra_valor_bonus_da_meta(): void
     {
         $org = $this->createOrg();
 
@@ -60,7 +60,8 @@ class MetaRbacTest extends TestCase
         $item = collect($this->actingAs($org['direcao'])->getJson('/api/dashboard?ano=2026&mes=9')->json('metas'))
             ->firstWhere('titulo', 'Meta com bônus');
         $this->assertIsArray($item);
-        $this->assertArrayNotHasKey('valor_bonus', $item);
+        $this->assertEquals(350.5, $item['valor_bonus']);
+        $this->assertSame('fixo', $item['modo_bonus']);
     }
 
     public function test_bonus_nao_vaza_na_listagem_nem_no_detalhe_fora_da_direcao(): void

@@ -80,6 +80,8 @@ class DashboardService
             'tipo_escopo' => $meta->tipo_escopo,
             'valor_meta' => (float) $meta->getAttribute('valor_meta'),
             'valor_realizado' => (float) $meta->getAttribute('valor_realizado'),
+            'valor_bonus' => (float) $meta->valor_bonus,
+            'modo_bonus' => $meta->modoBonus(),
             'unidade' => $meta->unidade,
             'sentido' => $meta->sentido,
             'percentual' => $percentual,

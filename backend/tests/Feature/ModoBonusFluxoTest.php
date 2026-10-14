@@ -147,8 +147,8 @@ class ModoBonusFluxoTest extends TestCase
 
         $this->assertEquals(150, $itemLinear['percentual']);
         $this->assertSame('concluida', $itemLinear['status']);
-        $this->assertArrayNotHasKey('valor_bonus', $itemLinear);
-        $this->assertArrayNotHasKey('modo_bonus', $itemLinear);
+        $this->assertEquals(200, $itemLinear['valor_bonus']);
+        $this->assertSame('linear', $itemLinear['modo_bonus']);
 
         $this->assertEquals(100, $itemFixo['percentual']);
         $this->assertSame('concluida', $itemFixo['status']);

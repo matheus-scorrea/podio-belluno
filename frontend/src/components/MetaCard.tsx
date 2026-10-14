@@ -1,7 +1,9 @@
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import { Box, Chip, Paper, Stack, Tooltip, Typography } from '@mui/material'
 import { renderMetaChart } from '../charts/chartFactory'
+import { bonusCadastroLabel } from '../lib/labels'
 import { EscopoAtribuicao } from './EscopoAtribuicao'
+import { BonusChip } from './MetaDadoChips'
 import { statusColor, statusLabel } from '../theme/status'
 import type { DashboardMeta } from '../types'
 
@@ -36,6 +38,9 @@ export function MetaCard({ meta, compact = false }: { meta: DashboardMeta; compa
                   : 'Nenhuma faixa atingida ainda'
                 : `${meta.valor_realizado} / ${meta.valor_meta} ${meta.unidade}`}
           </Typography>
+          <Box sx={{ mt: 1 }}>
+            <BonusChip valor={meta.valor_bonus} label={bonusCadastroLabel(meta)} />
+          </Box>
         </Box>
         <Stack spacing={0.5} sx={{ alignItems: 'flex-end', flexShrink: 0, maxWidth: { xs: '48%', sm: 240 }, minWidth: 0 }}>
           <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
