@@ -5,6 +5,7 @@ namespace Tests;
 use App\Models\Cargo;
 use App\Models\Departamento;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
@@ -26,6 +27,13 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
         $this->withoutMiddleware(ValidateCsrfToken::class);
+        Carbon::setTestNow(Carbon::parse('2026-09-15'));
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
     }
 
     private function forceInMemorySqlite(): void

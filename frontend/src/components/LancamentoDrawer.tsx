@@ -24,6 +24,7 @@ import dayjs, { type Dayjs } from 'dayjs'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { useAuth } from '../auth/useAuth'
+import { competenciaLabel } from '../lib/labels'
 import type { MetaLancavel } from '../types'
 
 const PIN_KEY = 'podio.lancamento.fixar'
@@ -46,6 +47,11 @@ type Props = {
 export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const hoje = dayjs()
+  const vigente = ano === hoje.year() && mes === hoje.month() + 1
+  const encerrada = !vigente && user?.is_direcao !== true
+  const inicioMes = dayjs(`${ano}-${String(mes).padStart(2, '0')}-01`)
+  const fimMes = inicioMes.endOf('month')
   const [metaId, setMetaId] = useState<number | ''>('')
   const [graoKey, setGraoKey] = useState('')
   const [valor, setValor] = useState('')
@@ -71,10 +77,23 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
     }
   }, [open])
 
+  useEffect(() => {
+    setDataEvento((atual) => {
+      if (atual.year() === ano && atual.month() + 1 === mes) {
+        return atual
+      }
+      const agora = dayjs()
+      if (agora.year() === ano && agora.month() + 1 === mes) {
+        return agora
+      }
+      return dayjs(`${ano}-${String(mes).padStart(2, '0')}-01`)
+    })
+  }, [ano, mes])
+
   const { data, isLoading } = useQuery({
     queryKey: ['lancaveis', ano, mes],
     queryFn: async () => (await api.get(`/metas/lancaveis?ano=${ano}&mes=${mes}`)).data.data as MetaLancavel[],
-    enabled: open,
+    enabled: open && !encerrada,
   })
 
   const selected = data?.find((m) => m.id === metaId)
@@ -188,7 +207,12 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
         </Tooltip>
       </Stack>
       {isLoading && <CircularProgress size={24} />}
-      {!isLoading && (data?.length ?? 0) === 0 && (
+      {encerrada && (
+        <Alert severity="info">
+          {competenciaLabel(mes, ano)} não está vigente. Resultados só podem ser lançados no mês atual.
+        </Alert>
+      )}
+      {!encerrada && !isLoading && (data?.length ?? 0) === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Não há metas para registrar nesta competência.
         </Alert>
@@ -203,7 +227,7 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
           Resultado registrado. Escolha outra meta para continuar.
         </Alert>
       )}
-      <Stack spacing={2.5}>
+      {!encerrada && <Stack spacing={2.5}>
         <FormControl fullWidth>
           <InputLabel>Meta</InputLabel>
           <Select
@@ -301,7 +325,13 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
             slotProps={{ input: { sx: { fontSize: 32, color: 'primary.main', fontVariantNumeric: 'tabular-nums' } } }}
           />
         )}
-        <DatePicker label="Data do evento" value={dataEvento} onChange={(v) => v && setDataEvento(v)} />
+        <DatePicker
+          label="Data do evento"
+          value={dataEvento}
+          minDate={inicioMes}
+          maxDate={fimMes}
+          onChange={(v) => v && setDataEvento(v)}
+        />
         <TextField
           label="Justificativa / observação"
           value={observacao}
@@ -319,7 +349,7 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
             Salvar
           </Button>
         </Box>
-      </Stack>
+      </Stack>}
     </Drawer>
   )
 }

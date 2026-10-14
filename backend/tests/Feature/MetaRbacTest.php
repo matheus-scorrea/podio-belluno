@@ -7,6 +7,7 @@ use App\Models\Meta;
 use App\Models\MetaLancamento;
 use App\Models\User;
 use App\Support\MetasMarco;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -280,6 +281,40 @@ class MetaRbacTest extends TestCase
             'meta_id' => $meta->id,
             'departamento_id' => $org['outro']->id,
         ]);
+    }
+
+    public function test_usuario_nao_lanca_mes_encerrado_e_direcao_pode_corrigir(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-13'));
+        $org = $this->createOrg();
+        $meta = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'departamento',
+            'chart_tipo' => 'gauge',
+            'titulo' => 'Meta do setor',
+        ]);
+        $meta->departamentos()->sync([$org['dept']->id]);
+
+        $this->actingAs($org['lider'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 10,
+            'data_evento' => '2026-09-09',
+        ])->assertUnprocessable()
+            ->assertJsonPath('errors.data_evento.0', 'Resultados só podem ser lançados no mês vigente.');
+
+        $this->actingAs($org['direcao'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 12,
+            'data_evento' => '2026-09-09',
+        ])->assertCreated();
+
+        $this->actingAs($org['direcao'])->postJson('/api/metas/abrir-competencia', [
+            'ano' => 2026,
+            'mes' => 10,
+        ])->assertOk();
+
+        $this->actingAs($org['lider'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 8,
+            'data_evento' => '2026-10-13',
+        ])->assertCreated();
     }
 
     public function test_colaborador_nao_lanca_meta_do_setor(): void

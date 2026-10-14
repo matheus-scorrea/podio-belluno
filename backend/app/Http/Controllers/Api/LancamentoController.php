@@ -101,6 +101,13 @@ class LancamentoController extends Controller
             ]);
         }
 
+        $vigente = $evento->year === now()->year && $evento->month === now()->month;
+        if (! $vigente && ! $request->user()->is_direcao) {
+            throw ValidationException::withMessages([
+                'data_evento' => 'Resultados só podem ser lançados no mês vigente.',
+            ]);
+        }
+
         $lancamento = $this->progresso->lancar($request->user(), $meta, $data);
 
         return response()->json($lancamento->load(['autor', 'departamento']), 201);
