@@ -7,6 +7,7 @@ use App\Models\Meta;
 use App\Models\MetaCompetencia;
 use App\Models\MetaLancamento;
 use App\Models\User;
+use App\Support\BonusPagamento;
 use App\Support\IndicadorStatus;
 use Illuminate\Support\Collection;
 
@@ -92,6 +93,7 @@ class DashboardService
                 'tipo' => $meta->chart_tipo,
                 'cor' => $meta->chart_cor,
             ],
+            'visual_escada' => in_array($meta->visual_escada, Meta::VISUAIS_ESCADA, true) ? $meta->visual_escada : 'escada',
             'departamentos' => $meta->departamentos->map(fn ($d) => [
                 'id' => $d->id,
                 'nome' => $d->nome,
@@ -136,6 +138,13 @@ class DashboardService
             $payload['marco'] = $this->serializarMarco($user, $meta, $ano, $mes);
         }
 
+        if ($meta->modoBonus() === 'faixa_unidade' && ! $meta->isPorPessoa()) {
+            $payload['escada'] = BonusPagamento::escada(
+                $meta->niveis_faixa ?? [],
+                (float) $meta->getAttribute('valor_realizado'),
+            );
+        }
+
         return $payload;
     }
 
@@ -172,7 +181,7 @@ class DashboardService
             $valor = (float) ($ultimo?->valor_realizado ?? 0);
             $percentual = IndicadorStatus::percentual($valor, $alvo, $meta->sentido, ! $meta->atingimentoSemTeto());
 
-            return [
+            $linha = [
                 'label' => $grao['label'],
                 'departamento_id' => $grao['departamento_id'],
                 'cargo_id' => $grao['cargo_id'] ?? null,
@@ -180,6 +189,12 @@ class DashboardService
                 'valor' => $valor,
                 'percentual' => $percentual,
             ];
+
+            if ($meta->modoBonus() === 'faixa_unidade') {
+                $linha['escada'] = BonusPagamento::escada($meta->niveis_faixa ?? [], $valor);
+            }
+
+            return $linha;
         })->values();
     }
 

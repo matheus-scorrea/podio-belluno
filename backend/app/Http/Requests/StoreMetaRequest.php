@@ -43,6 +43,7 @@ class StoreMetaRequest extends FormRequest
             'sentido' => ['required', Rule::in(['maior_melhor', 'menor_melhor'])],
             'chart_tipo' => ['required', Rule::in(['gauge', 'progress_bar', 'line', 'column', 'marco', 'comissao'])],
             'chart_cor' => ['required', 'regex:/^#([A-Fa-f0-9]{6})$/'],
+            'visual_escada' => ['nullable', Rule::in(Meta::VISUAIS_ESCADA)],
             'usuario_ids' => ['array', 'required_if:tipo_escopo,individual'],
             'usuario_ids.*' => ['exists:users,id'],
             'cargo_ids' => ['array', 'required_if:tipo_escopo,cargo'],

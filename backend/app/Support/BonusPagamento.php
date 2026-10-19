@@ -73,6 +73,39 @@ class BonusPagamento
     }
 
     /**
+     * @return array{
+     *     faixas: list<array{nome: string, quantidade_min: float, valor_por_unidade: float}>,
+     *     faixa_atual: string|null,
+     *     proxima_faixa: string|null,
+     *     falta: float|null,
+     *     bonus: float,
+     *     taxa: float|null
+     * }
+     */
+    public static function escada(mixed $niveis, float $realizado): array
+    {
+        $faixas = self::faixasValidas($niveis);
+        $atualIndex = null;
+        foreach ($faixas as $i => $faixa) {
+            if ($realizado + 0.00001 >= $faixa['quantidade_min']) {
+                $atualIndex = $i;
+            }
+        }
+
+        $atual = $atualIndex === null ? null : $faixas[$atualIndex];
+        $proxima = $atualIndex === null ? ($faixas[0] ?? null) : ($faixas[$atualIndex + 1] ?? null);
+
+        return [
+            'faixas' => $faixas,
+            'faixa_atual' => $atual !== null && $atual['nome'] !== '' ? $atual['nome'] : null,
+            'proxima_faixa' => $proxima !== null && $proxima['nome'] !== '' ? $proxima['nome'] : null,
+            'falta' => $proxima === null ? null : round(max(0, $proxima['quantidade_min'] - $realizado), 2),
+            'bonus' => $atual === null ? 0.0 : round($realizado * $atual['valor_por_unidade'], 2),
+            'taxa' => $atual !== null ? $atual['valor_por_unidade'] : null,
+        ];
+    }
+
+    /**
      * @return array{nome: string, quantidade_min: float, valor_por_unidade: float}|null
      */
     public static function resolverFaixa(mixed $niveis, float $realizado): ?array

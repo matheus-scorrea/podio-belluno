@@ -154,6 +154,156 @@ class ModoBonusFluxoTest extends TestCase
         $this->assertSame('concluida', $itemFixo['status']);
     }
 
+    public function test_dashboard_mostra_escada_da_faixa_unidade(): void
+    {
+        $org = $this->createOrg();
+
+        $reunioes = $this->metaIndividual($org, 0, 'Reuniões SDR');
+        $reunioes->update([
+            'modo_bonus' => 'faixa_unidade',
+            'niveis_faixa' => BonusPagamento::tabelaSdrReunioes(),
+        ]);
+        $this->bater($reunioes, 32);
+
+        $abaixo = $this->metaIndividual($org, 0, 'Reuniões abaixo');
+        $abaixo->update([
+            'modo_bonus' => 'faixa_unidade',
+            'niveis_faixa' => BonusPagamento::tabelaSdrReunioes(),
+        ]);
+        $this->bater($abaixo, 18);
+
+        $dash = $this->actingAs($org['colaborador'])->getJson('/api/dashboard?ano=2026&mes=9&visao=me');
+        $dash->assertOk();
+        $itens = collect($dash->json('metas'))->keyBy('titulo');
+
+        $this->assertSame('Meta 2', $itens['Reuniões SDR']['escada']['faixa_atual']);
+        $this->assertEquals(384, $itens['Reuniões SDR']['escada']['bonus']);
+        $this->assertSame('Meta 3', $itens['Reuniões SDR']['escada']['proxima_faixa']);
+        $this->assertEquals(3, $itens['Reuniões SDR']['escada']['falta']);
+
+        $this->assertNull($itens['Reuniões abaixo']['escada']['faixa_atual']);
+        $this->assertEquals(0, $itens['Reuniões abaixo']['escada']['bonus']);
+        $this->assertSame('Meta 1', $itens['Reuniões abaixo']['escada']['proxima_faixa']);
+        $this->assertEquals(2, $itens['Reuniões abaixo']['escada']['falta']);
+
+        $topo = $this->metaIndividual($org, 0, 'Reuniões no topo');
+        $topo->update([
+            'modo_bonus' => 'faixa_unidade',
+            'niveis_faixa' => BonusPagamento::tabelaSdrReunioes(),
+        ]);
+        $this->bater($topo, 40);
+
+        $dashTopo = $this->actingAs($org['colaborador'])->getJson('/api/dashboard?ano=2026&mes=9&visao=me');
+        $itemTopo = collect($dashTopo->json('metas'))->firstWhere('titulo', 'Reuniões no topo');
+        $this->assertSame('Meta 3', $itemTopo['escada']['faixa_atual']);
+        $this->assertEquals(600, $itemTopo['escada']['bonus']);
+        $this->assertNull($itemTopo['escada']['proxima_faixa']);
+        $this->assertNull($itemTopo['escada']['falta']);
+        $this->assertSame('escada', $itemTopo['visual_escada']);
+    }
+
+    public function test_dashboard_devolve_visual_da_escada(): void
+    {
+        $org = $this->createOrg();
+
+        $faixa = $this->metaIndividual($org, 0, 'Faixa padrão');
+        $faixa->update([
+            'modo_bonus' => 'faixa_unidade',
+            'niveis_faixa' => BonusPagamento::tabelaSdrReunioes(),
+        ]);
+
+        $comissao = $this->actingAs($org['direcao'])->postJson('/api/metas', [
+            'titulo' => 'Comissão no próximo gatilho',
+            'ano' => 2026,
+            'mes' => 9,
+            'tipo_escopo' => 'individual',
+            'valor_meta' => 25000,
+            'unidade' => 'R$',
+            'sentido' => 'maior_melhor',
+            'chart_tipo' => 'comissao',
+            'chart_cor' => '#00A8E8',
+            'visual_escada' => 'proximo',
+            'usuario_ids' => [$org['colaborador']->id],
+            'niveis_comissao' => ComissaoService::tabelaBelluno(),
+        ]);
+        $comissao->assertCreated();
+        $this->assertSame('proximo', $comissao->json('visual_escada'));
+
+        $ignorada = $this->actingAs($org['direcao'])->postJson('/api/metas', $this->payloadQuantitativa($org, [
+            'titulo' => 'Velocímetro ignora visual',
+            'visual_escada' => 'proximo',
+        ]));
+        $ignorada->assertCreated();
+        $this->assertSame('escada', $ignorada->json('visual_escada'));
+
+        $dash = $this->actingAs($org['colaborador'])->getJson('/api/dashboard?ano=2026&mes=9&visao=me');
+        $dash->assertOk();
+        $itens = collect($dash->json('metas'))->keyBy('titulo');
+
+        $this->assertSame('escada', $itens['Faixa padrão']['visual_escada']);
+        $this->assertSame('proximo', $itens['Comissão no próximo gatilho']['visual_escada']);
+
+        $faixa->update(['visual_escada' => 'proximo']);
+        $dashFaixa = $this->actingAs($org['colaborador'])->getJson('/api/dashboard?ano=2026&mes=9&visao=me');
+        $itemFaixa = collect($dashFaixa->json('metas'))->firstWhere('titulo', 'Faixa padrão');
+        $this->assertSame('proximo', $itemFaixa['visual_escada']);
+    }
+
+    public function test_dashboard_escada_por_pessoa_isola_faixa_e_bonus(): void
+    {
+        $org = $this->createOrg();
+        $colega = User::factory()->create([
+            'departamento_id' => $org['dept']->id,
+            'cargo_id' => $org['comumCargo']->id,
+        ]);
+
+        $id = $this->actingAs($org['direcao'])->postJson('/api/metas', $this->payloadQuantitativa($org, [
+            'titulo' => 'Reuniões por pessoa',
+            'tipo_escopo' => 'individual',
+            'usuario_ids' => [$org['colaborador']->id, $colega->id],
+            'marco_por_pessoa' => true,
+            'modo_bonus' => 'faixa_unidade',
+            'valor_bonus' => 0,
+            'unidade' => 'un',
+            'valor_meta' => 35,
+            'niveis_faixa' => BonusPagamento::tabelaSdrReunioes(),
+        ]))->assertCreated()->json('id');
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$id}/lancamentos", [
+            'valor_realizado' => 32,
+            'data_evento' => '2026-09-09',
+            'usuario_alvo_id' => $org['colaborador']->id,
+        ])->assertCreated();
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$id}/lancamentos", [
+            'valor_realizado' => 18,
+            'data_evento' => '2026-09-09',
+            'usuario_alvo_id' => $colega->id,
+        ])->assertForbidden();
+
+        $this->actingAs($org['direcao'])->postJson("/api/metas/{$id}/lancamentos", [
+            'valor_realizado' => 18,
+            'data_evento' => '2026-09-09',
+            'usuario_alvo_id' => $colega->id,
+        ])->assertCreated();
+
+        $dash = $this->actingAs($org['direcao'])->getJson('/api/dashboard?ano=2026&mes=9');
+        $item = collect($dash->json('metas'))->firstWhere('titulo', 'Reuniões por pessoa');
+        $this->assertArrayNotHasKey('escada', $item);
+
+        $series = collect($item['series']);
+        $ana = $series->firstWhere('usuario_alvo_id', $org['colaborador']->id);
+        $outro = $series->firstWhere('usuario_alvo_id', $colega->id);
+
+        $this->assertSame('Meta 2', $ana['escada']['faixa_atual']);
+        $this->assertEquals(384, $ana['escada']['bonus']);
+        $this->assertEquals(3, $ana['escada']['falta']);
+
+        $this->assertNull($outro['escada']['faixa_atual']);
+        $this->assertEquals(0, $outro['escada']['bonus']);
+        $this->assertSame('Meta 1', $outro['escada']['proxima_faixa']);
+    }
+
     public function test_dashboard_serie_por_pessoa_nao_corta_atingimento_linear(): void
     {
         $org = $this->createOrg();

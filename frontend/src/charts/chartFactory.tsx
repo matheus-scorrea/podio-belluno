@@ -1,10 +1,12 @@
 import type { ChartTipo, DashboardMeta } from '../types'
 import { ColumnMetaChart } from './ColumnMetaChart'
+import { FaixaEscadaChart } from './FaixaEscadaChart'
 import { GaugeMetaChart } from './GaugeMetaChart'
 import { LineMetaChart } from './LineMetaChart'
 import { ComissaoMetaChart } from './ComissaoMetaChart'
 import { MarcoMetaChart } from './MarcoMetaChart'
 import { ProgressBarMetaChart } from './ProgressBarMetaChart'
+import { ProximoGatilhoChart } from './ProximoGatilhoChart'
 import { SeriesPessoasList } from './SeriesPessoasList'
 
 const CHART_MAP = {
@@ -17,7 +19,17 @@ const CHART_MAP = {
 } as const
 
 export function renderMetaChart(meta: DashboardMeta) {
-  const Cmp = CHART_MAP[meta.chart.tipo]
+  const proximo = meta.visual_escada === 'proximo'
+  if (meta.modo_bonus === 'faixa_unidade') {
+    return (
+      <>
+        {proximo ? <ProximoGatilhoChart meta={meta} /> : <FaixaEscadaChart meta={meta} />}
+        <SeriesPessoasList meta={meta} />
+      </>
+    )
+  }
+
+  const Cmp = proximo && meta.chart.tipo === 'comissao' ? ProximoGatilhoChart : CHART_MAP[meta.chart.tipo]
   return (
     <>
       <Cmp meta={meta} />

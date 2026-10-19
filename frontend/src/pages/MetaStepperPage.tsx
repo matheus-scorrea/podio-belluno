@@ -42,7 +42,7 @@ import { nivelEmBranco, TABELA_BELLUNO, type NivelComissao } from '../lib/comiss
 import { faixaEmBranco, TABELA_SDR_REUNIOES, type NivelFaixa } from '../lib/faixaUnidade'
 import { competenciaVigente, formatBonus, MESES } from '../lib/labels'
 import { cargosParaEscopo, departamentosParaSelect } from '../lib/organizacao'
-import type { AuthUser, Cargo, ChartTipo, Departamento, MetaDetail, ModoBonus, Sentido, TipoEscopo } from '../types'
+import type { AuthUser, Cargo, ChartTipo, DashboardMeta, Departamento, EscadaFaixa, MetaDetail, ModoBonus, Sentido, TipoEscopo, VisualEscada } from '../types'
 
 const steps = ['Dados', 'Escopo', 'Visualização']
 const cores = ['#00A8E8', '#0077B6', '#10B981', '#F59E0B', '#EF4444', '#0A1128']
@@ -226,6 +226,86 @@ function CampoHelp({
   )
 }
 
+function previewDoPasso(
+  chartTipo: ChartTipo,
+  chartCor: string,
+  extras: {
+    porPessoa?: boolean
+    visualEscada: VisualEscada
+    niveis?: NivelComissao[]
+    faixas?: NivelFaixa[]
+    unidade: string
+    titulo: string
+  },
+): DashboardMeta {
+  const base = previewMeta(chartTipo, chartCor, { porPessoa: extras.porPessoa })
+  if (extras.niveis) {
+    const atual = extras.niveis[0]
+    const venda = Number(atual?.venda_min ?? 0)
+    const adesao = Number(atual?.adesao_min ?? 0)
+    const percentualNivel = Number(atual?.percentual ?? 0)
+    const comissao = Math.round(venda * percentualNivel) / 100
+    const premio = Number(atual?.premio ?? 0)
+    return {
+      ...base,
+      titulo: extras.titulo || base.titulo,
+      visual_escada: extras.visualEscada,
+      comissao: {
+        niveis: extras.niveis,
+        vendedores: [
+          {
+            usuario_id: 1,
+            nome: 'Exemplo',
+            nivel: atual?.nome ?? null,
+            venda,
+            adesao,
+            percentual: percentualNivel,
+            comissao,
+            premio,
+            total: Math.round((comissao + premio) * 100) / 100,
+          },
+        ],
+      },
+    }
+  }
+
+  if (extras.faixas) {
+    const primeira = [...extras.faixas].sort((a, b) => a.quantidade_min - b.quantidade_min)[0]
+    const realizado = Number(primeira?.quantidade_min ?? 0)
+    return {
+      ...base,
+      titulo: extras.titulo || 'Pré-visualização',
+      unidade: extras.unidade,
+      valor_realizado: realizado,
+      visual_escada: extras.visualEscada,
+      modo_bonus: 'faixa_unidade',
+      escada: escadaDaPrevia(extras.faixas, realizado),
+    }
+  }
+
+  return { ...base, visual_escada: 'escada' }
+}
+
+function escadaDaPrevia(faixas: NivelFaixa[], realizado: number): EscadaFaixa {
+  const ordenadas = [...faixas].sort((a, b) => a.quantidade_min - b.quantidade_min)
+  let atual: NivelFaixa | null = null
+  for (const faixa of ordenadas) {
+    if (realizado + 0.00001 >= Number(faixa.quantidade_min)) {
+      atual = faixa
+    }
+  }
+  const indice = atual ? ordenadas.findIndex((faixa) => faixa.nome === atual?.nome) : -1
+  const proxima = indice < 0 ? ordenadas[0] : ordenadas[indice + 1]
+  return {
+    faixas: ordenadas,
+    faixa_atual: atual?.nome ?? null,
+    proxima_faixa: proxima?.nome ?? null,
+    falta: proxima ? Math.max(0, Number(proxima.quantidade_min) - realizado) : null,
+    bonus: atual ? Math.round(realizado * Number(atual.valor_por_unidade) * 100) / 100 : 0,
+    taxa: atual ? Number(atual.valor_por_unidade) : null,
+  }
+}
+
 function tipoIndicador(chartTipo: ChartTipo): 'quantitativo' | 'marco' | 'comissao' {
   if (chartTipo === 'marco') {
     return 'marco'
@@ -262,6 +342,7 @@ export function MetaStepperPage() {
   const [deptsSel, setDeptsSel] = useState<Departamento[]>([])
   const [chartTipo, setChartTipo] = useState<ChartTipo>('gauge')
   const [chartCor, setChartCor] = useState('#00A8E8')
+  const [visualEscada, setVisualEscada] = useState<VisualEscada>('escada')
   const [niveis, setNiveis] = useState<NivelComissao[]>(TABELA_BELLUNO)
   const [faixas, setFaixas] = useState<NivelFaixa[]>(TABELA_SDR_REUNIOES)
   const [porPessoa, setPorPessoa] = useState(false)
@@ -309,6 +390,7 @@ export function MetaStepperPage() {
     setDeptsSel(meta.departamentos ?? [])
     setChartTipo(meta.chart_tipo)
     setChartCor(meta.chart_cor)
+    setVisualEscada(meta.visual_escada === 'proximo' ? 'proximo' : 'escada')
     if (meta.niveis_comissao && meta.niveis_comissao.length > 0) {
       setNiveis(meta.niveis_comissao)
     }
@@ -345,6 +427,7 @@ export function MetaStepperPage() {
       sentido: ehMarco || ehComissao ? 'maior_melhor' : sentido,
       chart_tipo: chartTipo,
       chart_cor: chartCor,
+      visual_escada: ehComissao || modoBonus === 'faixa_unidade' ? visualEscada : 'escada',
       usuario_ids: usuariosSel.map((u) => u.id),
       cargo_ids: cargosSel.map((c) => c.id),
       departamento_ids: deptsSel.map((d) => d.id),
@@ -391,7 +474,14 @@ export function MetaStepperPage() {
   const ehFaixaUnidade = ehQuantitativa && modoBonus === 'faixa_unidade'
   const escopoPodeVariasPessoas = tipoEscopo !== 'individual' || usuariosSel.length > 1
   const mostrarPorPessoa = (chartTipo === 'marco' || ehQuantitativa) && escopoPodeVariasPessoas
-  const preview = previewMeta(chartTipo, chartCor, { porPessoa: mostrarPorPessoa && porPessoa })
+  const preview = previewDoPasso(chartTipo, chartCor, {
+    porPessoa: mostrarPorPessoa && porPessoa,
+    visualEscada: ehComissao || ehFaixaUnidade ? visualEscada : 'escada',
+    niveis: ehComissao ? niveis : undefined,
+    faixas: ehFaixaUnidade ? faixas : undefined,
+    unidade,
+    titulo,
+  })
 
   if (user && !user.is_direcao) {
     return <Navigate to="/" replace />
@@ -871,7 +961,9 @@ export function MetaStepperPage() {
             {active === 2 && (
               <Stack spacing={3}>
                 <Typography color="text.secondary">
-                  Defina como o indicador aparece no painel.
+                  {ehComissao || ehFaixaUnidade
+                    ? 'Escolha como a escada aparece no painel.'
+                    : 'Defina como o indicador aparece no painel.'}
                 </Typography>
                 {chartTipo === 'marco' ? (
                   <Alert severity="info">
@@ -879,10 +971,16 @@ export function MetaStepperPage() {
                       ? 'O painel lista feito ou pendente por pessoa. O marco só fica concluído quando todas concluírem.'
                       : 'O painel mostra só se o marco foi concluído ou ainda está pendente.'}
                   </Alert>
-                ) : ehComissao ? (
-                  <Alert severity="info">
-                    O painel mostra a faixa atingida, a comissão, o prêmio e o total da remuneração variável.
-                  </Alert>
+                ) : ehComissao || ehFaixaUnidade ? (
+                  <ToggleButtonGroup
+                    exclusive
+                    value={visualEscada}
+                    onChange={(_, valor) => valor && setVisualEscada(valor)}
+                    sx={{ flexWrap: 'wrap' }}
+                  >
+                    <ToggleButton value="escada">Escada</ToggleButton>
+                    <ToggleButton value="proximo">Próximo gatilho</ToggleButton>
+                  </ToggleButtonGroup>
                 ) : (
                   <>
                     {mostrarPorPessoa && porPessoa ? (
@@ -931,7 +1029,7 @@ export function MetaStepperPage() {
                     />
                   ))}
                 </Stack>
-                <Paper sx={{ p: 2, maxWidth: ehComissao ? 960 : 640 }}>{renderMetaChart(preview)}</Paper>
+                <Paper sx={{ p: 2, maxWidth: ehComissao || ehFaixaUnidade ? 960 : 640 }}>{renderMetaChart(preview)}</Paper>
               </Stack>
             )}
             {error && (

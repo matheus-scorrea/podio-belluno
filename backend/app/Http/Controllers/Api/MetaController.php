@@ -201,6 +201,10 @@ class MetaController extends Controller
             $data = $this->normalizarModoBonus($data, ($data['sentido'] ?? '') !== 'menor_melhor');
         }
 
+        $aplicaEscada = ($data['chart_tipo'] ?? '') === 'comissao' || ($data['modo_bonus'] ?? '') === 'faixa_unidade';
+        $visual = $data['visual_escada'] ?? 'escada';
+        $data['visual_escada'] = $aplicaEscada && in_array($visual, Meta::VISUAIS_ESCADA, true) ? $visual : 'escada';
+
         return $data;
     }
 

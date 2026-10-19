@@ -22,6 +22,7 @@ class MetaFactory extends Factory
             'agregacao' => 'media',
             'chart_tipo' => 'gauge',
             'chart_cor' => '#00A8E8',
+            'visual_escada' => 'escada',
             'valor_bonus' => 0,
             'modo_bonus' => 'fixo',
             'bonus_piso_percentual' => null,

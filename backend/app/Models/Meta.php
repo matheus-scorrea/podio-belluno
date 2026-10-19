@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'agregacao',
     'chart_tipo',
     'chart_cor',
+    'visual_escada',
     'valor_bonus',
     'modo_bonus',
     'bonus_piso_percentual',
@@ -37,6 +38,8 @@ class Meta extends Model
     use HasFactory, SoftDeletes;
 
     public const MODOS_BONUS = ['fixo', 'linear', 'unidade', 'faixa_unidade', 'por_unidade'];
+
+    public const VISUAIS_ESCADA = ['escada', 'proximo'];
 
     protected $hidden = [
         'ordem_exibicao',
