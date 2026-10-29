@@ -434,7 +434,7 @@ export function MetasListPage() {
               <Typography variant="body2" color="text.secondary">
                 Equipe atual: {rotulosEscopoAtual(toClone).join(', ') || escopoLabel(toClone.tipo_escopo)}
               </Typography>
-              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
                 {rotulosEscopoAtual(toClone).map((rotulo, idx) => (
                   <Chip key={`${rotulo}-${idx}`} size="small" label={rotulo} />
                 ))}
