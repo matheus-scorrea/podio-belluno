@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMetaRequest;
 use App\Models\Meta;
+use App\Models\User;
 use App\Services\ComissaoService;
 use App\Services\CompetenciaService;
 use App\Services\ProgressoService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
 class MetaController extends Controller
@@ -60,8 +62,14 @@ class MetaController extends Controller
             });
         }
 
-        return $query->get()->map(function (Meta $meta) use ($request, $ano, $mes) {
+        $ativos = User::query()
+            ->where('ativo', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'cargo_id', 'departamento_id']);
+
+        return $query->get()->map(function (Meta $meta) use ($request, $ano, $mes, $ativos) {
             $this->competencias->hidratar($meta, $ano, $mes);
+            $this->anexarUsuariosDoEscopo($meta, $ativos);
 
             return $this->ocultarBonusSeNecessario($request, $meta);
         });
@@ -321,6 +329,23 @@ class MetaController extends Controller
         $this->competencias->hidratar($meta, $ano, $mes);
 
         return $meta;
+    }
+
+    /**
+     * @param  Collection<int, User>  $ativos
+     */
+    private function anexarUsuariosDoEscopo(Meta $meta, Collection $ativos): void
+    {
+        $meta->setAttribute(
+            'escopo_usuarios',
+            $meta->usuariosEnglobados($ativos)
+                ->map(fn (User $u) => [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                ])
+                ->values()
+                ->all()
+        );
     }
 
     private function syncEscopo(Meta $meta, array $data): void

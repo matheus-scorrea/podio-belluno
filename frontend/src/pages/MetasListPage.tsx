@@ -61,6 +61,7 @@ type MetaRow = {
   departamentos?: { id: number; nome: string }[]
   cargos?: { id: number; nome: string }[]
   usuarios?: { id: number; name: string }[]
+  escopo_usuarios?: { id: number; name: string }[]
 }
 
 function tipoEscopoPadraoClone(meta: MetaRow): TipoEscopo {
@@ -320,6 +321,7 @@ export function MetasListPage() {
                       departamentos={m.departamentos}
                       cargos={m.cargos}
                       usuarios={m.usuarios}
+                      pessoas={m.escopo_usuarios}
                     />
                   </TableCell>
                   <TableCell sx={hideColXs}>

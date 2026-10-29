@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 
 #[Fillable([
     'titulo',
@@ -235,6 +236,25 @@ class Meta extends Model
                 'competencias' => fn ($q) => $q->where('ano', $ano)->where('mes', $mes),
                 'lancamentos' => fn ($q) => $q->whereYear('data_evento', $ano)->whereMonth('data_evento', $mes),
             ]);
+    }
+
+    /**
+     * @param  Collection<int, User>  $candidatos
+     * @return Collection<int, User>
+     */
+    public function usuariosEnglobados(Collection $candidatos): Collection
+    {
+        $this->loadMissing(['usuarios', 'cargos', 'departamentos']);
+
+        $filtrados = match ($this->tipo_escopo) {
+            'individual' => $candidatos->filter(fn (User $u) => $this->usuarios->contains('id', $u->id)),
+            'cargo' => $candidatos->filter(fn (User $u) => $this->cargos->contains('id', $u->cargo_id)),
+            'departamento' => $candidatos->filter(fn (User $u) => $this->departamentos->contains('id', $u->departamento_id)),
+            'global' => $candidatos,
+            default => collect(),
+        };
+
+        return $filtrados->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
     }
 
     public function subtitulo(): string
