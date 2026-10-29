@@ -99,6 +99,27 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
+        'dw' => [
+            'driver' => env('DW_CONNECTION', 'mysql'),
+            'url' => env('DW_URL'),
+            'host' => env('DW_HOST', '127.0.0.1'),
+            'port' => env('DW_PORT', '3306'),
+            'database' => env('DW_DATABASE', 'warehouse'),
+            'username' => env('DW_USERNAME', 'readonly'),
+            'password' => env('DW_PASSWORD', ''),
+            'unix_socket' => env('DW_SOCKET', ''),
+            'charset' => env('DW_CHARSET', 'utf8mb4'),
+            'collation' => env('DW_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),

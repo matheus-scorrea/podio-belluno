@@ -12,6 +12,10 @@ import { MetaStepperPage } from './pages/MetaStepperPage'
 import { PrimeiroAcessoPage } from './pages/PrimeiroAcessoPage'
 import { UsuarioFormPage } from './pages/UsuarioFormPage'
 import { UsuariosPage } from './pages/UsuariosPage'
+import { ConexaoFormPage } from './pages/ConexaoFormPage'
+import { ConexoesPage } from './pages/ConexoesPage'
+import { IndicadoresPage } from './pages/IndicadoresPage'
+import { VariavelStepperPage } from './pages/VariavelStepperPage'
 
 export default function App() {
   return (
@@ -34,6 +38,12 @@ export default function App() {
         <Route path="/usuarios/novo" element={<UsuarioFormPage />} />
         <Route path="/usuarios/:id/editar" element={<UsuarioFormPage />} />
         <Route path="/fechamento" element={<FechamentoPage />} />
+        <Route path="/indicadores" element={<IndicadoresPage />} />
+        <Route path="/indicadores/nova" element={<VariavelStepperPage />} />
+        <Route path="/indicadores/conexoes" element={<ConexoesPage />} />
+        <Route path="/indicadores/conexoes/nova" element={<ConexaoFormPage />} />
+        <Route path="/indicadores/conexoes/:id/editar" element={<ConexaoFormPage />} />
+        <Route path="/indicadores/:id/editar" element={<VariavelStepperPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </SessionGate>

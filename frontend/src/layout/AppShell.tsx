@@ -5,6 +5,7 @@ import GroupIcon from '@mui/icons-material/GroupOutlined'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined'
 import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined'
+import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined'
 import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined'
@@ -49,6 +50,7 @@ const navConta = {
 const navDirecao = [
   { to: '/', label: 'Painel', icon: <DashboardIcon fontSize="small" />, match: (p: string) => p === '/' },
   { to: '/metas', label: 'Metas', icon: <FlagIcon fontSize="small" />, match: (p: string) => p.startsWith('/metas') },
+  { to: '/indicadores', label: 'Indicadores', icon: <QueryStatsOutlinedIcon fontSize="small" />, match: (p: string) => p.startsWith('/indicadores') },
   { to: '/departamentos', label: 'Setores', icon: <CorporateFareIcon fontSize="small" />, match: (p: string) => p.startsWith('/departamentos') },
   { to: '/usuarios', label: 'Usuários', icon: <GroupIcon fontSize="small" />, match: (p: string) => p.startsWith('/usuarios') },
   { to: '/fechamento', label: 'Fechamento', icon: <PaymentsOutlinedIcon fontSize="small" />, match: (p: string) => p.startsWith('/fechamento') },

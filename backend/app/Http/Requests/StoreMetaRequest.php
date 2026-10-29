@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Meta;
+use App\Models\Variavel;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -18,6 +19,7 @@ class StoreMetaRequest extends FormRequest
     {
         $this->merge([
             'marco_por_pessoa' => $this->boolean('marco_por_pessoa'),
+            'variavel_id' => $this->filled('variavel_id') ? $this->integer('variavel_id') : null,
         ]);
     }
 
@@ -41,7 +43,7 @@ class StoreMetaRequest extends FormRequest
             'niveis_faixa.*.valor_por_unidade' => ['required_with:niveis_faixa', 'numeric', 'min:0'],
             'unidade' => ['required', Rule::in(['%', 'R$', 'un', 'marco'])],
             'sentido' => ['required', Rule::in(['maior_melhor', 'menor_melhor'])],
-            'chart_tipo' => ['required', Rule::in(['gauge', 'progress_bar', 'line', 'column', 'marco', 'comissao'])],
+            'chart_tipo' => ['required', Rule::in(['gauge', 'progress_bar', 'bullet', 'line', 'column', 'marco', 'comissao'])],
             'chart_cor' => ['required', 'regex:/^#([A-Fa-f0-9]{6})$/'],
             'visual_escada' => ['nullable', Rule::in(Meta::VISUAIS_ESCADA)],
             'usuario_ids' => ['array', 'required_if:tipo_escopo,individual'],
@@ -50,6 +52,7 @@ class StoreMetaRequest extends FormRequest
             'cargo_ids.*' => ['exists:cargos,id'],
             'departamento_ids' => ['array', 'required_if:tipo_escopo,departamento'],
             'departamento_ids.*' => ['exists:departamentos,id'],
+            'variavel_id' => ['nullable', 'integer', 'exists:variaveis,id'],
             'marco_por_pessoa' => ['boolean'],
             'niveis_comissao' => ['nullable', 'array', 'required_if:chart_tipo,comissao', 'min:1'],
             'niveis_comissao.*.nome' => ['required_with:niveis_comissao', 'string', 'max:40'],
@@ -85,6 +88,24 @@ class StoreMetaRequest extends FormRequest
                     $teto = $this->input('bonus_teto_percentual');
                     if ($teto !== null && $teto !== '' && $piso !== null && $piso !== '' && (float) $teto < (float) $piso) {
                         $validator->errors()->add('bonus_teto_percentual', 'O teto do bônus não pode ser menor que o piso.');
+                    }
+                }
+
+                if ($this->input('chart_tipo') === 'bullet' && $this->input('unidade') !== '%') {
+                    $validator->errors()->add('chart_tipo', 'O visual bullet se aplica a metas em %.');
+                }
+
+                $variavelId = $this->input('variavel_id');
+                if ($variavelId) {
+                    $chart = $this->input('chart_tipo');
+                    $porPessoa = $this->boolean('marco_por_pessoa');
+                    if (in_array($chart, ['marco', 'comissao', 'column'], true) || $porPessoa) {
+                        $validator->errors()->add('variavel_id', 'Variável só se aplica a meta quantitativa de um único número.');
+                    } else {
+                        $variavel = Variavel::query()->find($variavelId);
+                        if ($variavel && $variavel->status !== Variavel::PUBLICADA) {
+                            $validator->errors()->add('variavel_id', 'Escolha uma variável publicada.');
+                        }
                     }
                 }
             },

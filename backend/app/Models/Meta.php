@@ -33,6 +33,7 @@ use Illuminate\Support\Collection;
     'marco_por_pessoa',
     'created_by',
     'cloned_from_id',
+    'variavel_id',
     'ativo',
 ])]
 class Meta extends Model
@@ -89,6 +90,16 @@ class Meta extends Model
     public function competencias(): HasMany
     {
         return $this->hasMany(MetaCompetencia::class);
+    }
+
+    public function variavel(): BelongsTo
+    {
+        return $this->belongsTo(Variavel::class);
+    }
+
+    public function aceitaOrigemVariavel(): bool
+    {
+        return $this->isQuantitativa() && ! $this->isComparativa() && ! $this->isPorPessoa();
     }
 
     public function isComparativa(): bool

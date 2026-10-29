@@ -40,9 +40,10 @@ import { PageHeader } from '../components/PageHeader'
 import { AppShell } from '../layout/AppShell'
 import { nivelEmBranco, TABELA_BELLUNO, type NivelComissao } from '../lib/comissao'
 import { faixaEmBranco, TABELA_SDR_REUNIOES, type NivelFaixa } from '../lib/faixaUnidade'
-import { competenciaVigente, formatBonus, MESES } from '../lib/labels'
+import { chartLabel, competenciaVigente, formatBonus, MESES } from '../lib/labels'
+import { chartsParaUnidade } from '../lib/percentualViz'
 import { cargosParaEscopo, departamentosParaSelect } from '../lib/organizacao'
-import type { AuthUser, Cargo, ChartTipo, DashboardMeta, Departamento, EscadaFaixa, MetaDetail, ModoBonus, Sentido, TipoEscopo, VisualEscada } from '../types'
+import type { AuthUser, Cargo, ChartTipo, DashboardMeta, Departamento, EscadaFaixa, MetaDetail, ModoBonus, Sentido, TipoEscopo, Variavel, VisualEscada } from '../types'
 
 const steps = ['Dados', 'Escopo', 'Visualização']
 const cores = ['#00A8E8', '#0077B6', '#10B981', '#F59E0B', '#EF4444', '#0A1128']
@@ -236,9 +237,16 @@ function previewDoPasso(
     faixas?: NivelFaixa[]
     unidade: string
     titulo: string
+    sentido: Sentido
+    valorMeta: number
   },
 ): DashboardMeta {
-  const base = previewMeta(chartTipo, chartCor, { porPessoa: extras.porPessoa })
+  const base = previewMeta(chartTipo, chartCor, {
+    porPessoa: extras.porPessoa,
+    unidade: extras.unidade,
+    sentido: extras.sentido,
+    valorMeta: extras.valorMeta,
+  })
   if (extras.niveis) {
     const atual = extras.niveis[0]
     const venda = Number(atual?.venda_min ?? 0)
@@ -352,6 +360,7 @@ export function MetaStepperPage() {
   const [bonusPorUnidade, setBonusPorUnidade] = useState('0')
   const [error, setError] = useState<string | null>(null)
   const [hydrated, setHydrated] = useState(!isEdit)
+  const [variavelSel, setVariavelSel] = useState<Variavel | null>(null)
 
   const { data: usuarios } = useQuery({
     queryKey: ['usuarios'],
@@ -360,6 +369,10 @@ export function MetaStepperPage() {
   const { data: departamentos } = useQuery({
     queryKey: ['departamentos'],
     queryFn: async () => (await api.get('/departamentos')).data as Departamento[],
+  })
+  const { data: variaveisPublicadas } = useQuery({
+    queryKey: ['variaveis', 'publicadas'],
+    queryFn: async () => (await api.get('/variaveis?status=publicada')).data.data as Variavel[],
   })
   const { data: meta, isLoading } = useQuery({
     queryKey: ['meta', id, searchParams.get('ano'), searchParams.get('mes')],
@@ -402,6 +415,7 @@ export function MetaStepperPage() {
     setBonusPiso(String(meta.bonus_piso_percentual ?? 100))
     setBonusTeto(meta.bonus_teto_percentual == null ? '' : String(meta.bonus_teto_percentual))
     setBonusPorUnidade(String(meta.bonus_por_unidade_extra ?? 0))
+    setVariavelSel(meta.variavel ?? (meta.variavel_id ? { id: meta.variavel_id, nome: 'Variável', chave: '', unidade: meta.unidade, descricao: null, valor_vigente: null } : null))
     setHydrated(true)
   }, [meta])
 
@@ -446,6 +460,7 @@ export function MetaStepperPage() {
       bonus_por_unidade_extra: !ehMarco && !ehComissao && sentido !== 'menor_melhor' && modoBonus === 'unidade'
         ? Number(bonusPorUnidade)
         : null,
+      variavel_id: ehMarco || ehComissao || chartTipo === 'column' || porPessoa ? null : variavelSel?.id ?? null,
     }
   }
 
@@ -474,6 +489,23 @@ export function MetaStepperPage() {
   const ehFaixaUnidade = ehQuantitativa && modoBonus === 'faixa_unidade'
   const escopoPodeVariasPessoas = tipoEscopo !== 'individual' || usuariosSel.length > 1
   const mostrarPorPessoa = (chartTipo === 'marco' || ehQuantitativa) && escopoPodeVariasPessoas
+  const podeUsarVariavel = ehQuantitativa && chartTipo !== 'column' && !(mostrarPorPessoa && porPessoa)
+
+  useEffect(() => {
+    if (!podeUsarVariavel && variavelSel) {
+      setVariavelSel(null)
+    }
+  }, [podeUsarVariavel, variavelSel])
+
+  useEffect(() => {
+    if (chartTipo === 'marco' || chartTipo === 'comissao') {
+      return
+    }
+    const permitidos = chartsParaUnidade(unidade)
+    if (!permitidos.includes(chartTipo)) {
+      setChartTipo('gauge')
+    }
+  }, [unidade, chartTipo])
   const preview = previewDoPasso(chartTipo, chartCor, {
     porPessoa: mostrarPorPessoa && porPessoa,
     visualEscada: ehComissao || ehFaixaUnidade ? visualEscada : 'escada',
@@ -481,6 +513,8 @@ export function MetaStepperPage() {
     faixas: ehFaixaUnidade ? faixas : undefined,
     unidade,
     titulo,
+    sentido,
+    valorMeta: Number(valorMeta),
   })
 
   if (user && !user.is_direcao) {
@@ -687,6 +721,22 @@ export function MetaStepperPage() {
                   chartTipo !== 'marco' && (
                     <>
                       <TextField label="Alvo nesta competência" type="number" value={valorMeta} onChange={(e) => setValorMeta(e.target.value)} />
+                      {podeUsarVariavel && (
+                        <Autocomplete
+                          options={variaveisPublicadas ?? []}
+                          value={variavelSel}
+                          onChange={(_, value) => setVariavelSel(value)}
+                          getOptionLabel={(option) => `${option.nome}${option.unidade ? ` (${option.unidade})` : ''}`}
+                          isOptionEqualToValue={(option, value) => option.id === value.id}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              label="Realizado automático (opcional)"
+                              helperText={variavelSel?.descricao || 'Manual permanece o padrão. A variável publicada substitui o lançamento no mês vigente.'}
+                            />
+                          )}
+                        />
+                      )}
                       <FormControl>
                         <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
                           Sentido do indicador
@@ -996,10 +1046,11 @@ export function MetaStepperPage() {
                       )
                     )}
                     <ToggleButtonGroup exclusive value={chartTipo} onChange={(_, v) => v && setChartTipo(v)} sx={{ flexWrap: 'wrap' }}>
-                      <ToggleButton value="gauge">Velocímetro</ToggleButton>
-                      <ToggleButton value="progress_bar">Barra de progresso</ToggleButton>
-                      <ToggleButton value="line">Linha temporal</ToggleButton>
-                      <ToggleButton value="column">Barras comparativas</ToggleButton>
+                      {chartsParaUnidade(unidade).map((tipo) => (
+                        <ToggleButton key={tipo} value={tipo}>
+                          {chartLabel(tipo)}
+                        </ToggleButton>
+                      ))}
                     </ToggleButtonGroup>
                   </>
                 )}

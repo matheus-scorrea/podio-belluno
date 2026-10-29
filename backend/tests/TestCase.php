@@ -46,6 +46,10 @@ abstract class TestCase extends BaseTestCase
             'SESSION_DRIVER' => 'array',
             'CACHE_STORE' => 'array',
             'QUEUE_CONNECTION' => 'sync',
+            'DW_CONNECTION' => 'sqlite',
+            'DW_DATABASE' => ':memory:',
+            'DW_HOST' => '',
+            'DW_URL' => '',
         ] as $key => $value) {
             putenv($key.'='.$value);
             $_ENV[$key] = $value;

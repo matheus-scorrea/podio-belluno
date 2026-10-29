@@ -1,7 +1,7 @@
 FROM php:8.4-fpm-alpine
 
-RUN apk add --no-cache nginx postgresql-dev libzip-dev unzip \
-    && docker-php-ext-install pdo_pgsql zip opcache
+RUN apk add --no-cache nginx postgresql-dev libzip-dev unzip mariadb-connector-c-dev \
+    && docker-php-ext-install pdo_pgsql pdo_mysql zip opcache
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

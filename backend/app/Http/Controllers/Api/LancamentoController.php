@@ -32,7 +32,7 @@ class LancamentoController extends Controller
             ->with(['departamentos', 'cargos', 'usuarios'])
             ->competencia($ano, $mes)
             ->get()
-            ->filter(fn (Meta $meta) => $this->acesso->podeLancarAlgumGrao($user, $meta))
+            ->filter(fn (Meta $meta) => ! $meta->variavel_id && $this->acesso->podeLancarAlgumGrao($user, $meta))
             ->values()
             ->map(function (Meta $meta) use ($ano, $mes, $user) {
                 $this->competencias->hidratar($meta, $ano, $mes);
@@ -85,6 +85,12 @@ class LancamentoController extends Controller
     public function store(StoreLancamentoRequest $request, Meta $meta)
     {
         $this->authorize('lancarProgresso', $meta);
+
+        if ($meta->variavel_id) {
+            throw ValidationException::withMessages([
+                'valor_realizado' => 'Esta meta é atualizada automaticamente pelo data warehouse.',
+            ]);
+        }
 
         $data = $request->validated();
         $evento = Carbon::parse($data['data_evento']);

@@ -1,5 +1,5 @@
 export type Perfil = 'direcao' | 'lider' | 'colaborador'
-export type ChartTipo = 'gauge' | 'progress_bar' | 'line' | 'column' | 'marco' | 'comissao'
+export type ChartTipo = 'gauge' | 'progress_bar' | 'bullet' | 'line' | 'column' | 'marco' | 'comissao'
 export type ModoBonus = 'fixo' | 'linear' | 'unidade' | 'faixa_unidade' | 'por_unidade'
 export type VisualEscada = 'escada' | 'proximo'
 export type StatusMeta = 'concluida' | 'esperado' | 'atencao' | 'abaixo'
@@ -254,6 +254,40 @@ export type MetaCompetencia = {
   valor_realizado: number
 }
 
+export type VariavelStatus = 'rascunho' | 'publicada' | 'inativa'
+
+export type DwConexao = {
+  id: number
+  nome: string
+  driver: string
+  host: string
+  port: number
+  database: string
+  username: string
+  ssl: boolean
+  ativa: boolean
+  tem_senha: boolean
+  variaveis_count?: number
+}
+
+export type Variavel = {
+  id: number
+  nome: string
+  chave: string
+  conexao_id?: number | null
+  conexao?: { id: number; nome: string; driver: string; host: string; database: string } | null
+  unidade: string
+  descricao: string | null
+  consulta_sql?: string
+  status?: VariavelStatus
+  ultimo_erro?: string | null
+  testado_em?: string | null
+  sincronizado_em?: string | null
+  consulta_testada?: boolean
+  valor_vigente: number | null
+  metas_count?: number
+}
+
 export type MetaDetail = {
   id: number
   titulo: string
@@ -262,6 +296,8 @@ export type MetaDetail = {
   mes: number
   tipo_escopo: TipoEscopo
   valor_meta: number
+  variavel_id?: number | null
+  variavel?: Variavel | null
   valor_bonus?: number
   modo_bonus?: ModoBonus
   bonus_piso_percentual?: number | string | null

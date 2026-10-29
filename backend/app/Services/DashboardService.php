@@ -71,7 +71,7 @@ class DashboardService
     {
         $percentual = $meta->percentual();
         $status = $meta->status();
-        $podeLancar = $this->acesso->podeLancarAlgumGrao($user, $meta);
+        $podeLancar = ! $meta->variavel_id && $this->acesso->podeLancarAlgumGrao($user, $meta);
 
         $payload = [
             'id' => $meta->id,

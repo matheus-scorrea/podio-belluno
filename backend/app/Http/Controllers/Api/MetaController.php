@@ -325,7 +325,7 @@ class MetaController extends Controller
 
     private function detalhar(Meta $meta, int $ano, int $mes): Meta
     {
-        $meta->load(['departamentos', 'cargos.departamento', 'usuarios', 'competencias', 'lancamentos']);
+        $meta->load(['departamentos', 'cargos.departamento', 'usuarios', 'competencias', 'lancamentos', 'variavel']);
         $this->competencias->hidratar($meta, $ano, $mes);
 
         return $meta;
