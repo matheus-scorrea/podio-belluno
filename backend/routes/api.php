@@ -38,6 +38,7 @@ Route::middleware(['auth:sanctum', 'usuario.ativo'])->group(function () {
             Route::apiResource('usuarios', UsuarioController::class);
             Route::post('/usuarios/{usuario}/senha-temporaria', [UsuarioController::class, 'senhaTemporaria']);
             Route::post('/metas/abrir-competencia', [MetaController::class, 'abrirCompetencia']);
+            Route::post('/metas/{meta}/clonar', [MetaController::class, 'clonar']);
             Route::post('/metas', [MetaController::class, 'store']);
             Route::put('/metas/{meta}', [MetaController::class, 'update']);
             Route::delete('/metas/{meta}', [MetaController::class, 'destroy']);

@@ -14,6 +14,18 @@ export function competenciaVigente(): { ano: number; mes: number } {
   return { ano: hoje.getFullYear(), mes: hoje.getMonth() + 1 }
 }
 
+export function destinosClone(agora = new Date()): { ano: number; mes: number; label: string }[] {
+  const ano = agora.getFullYear()
+  const mes = agora.getMonth() + 1
+  const proximoMes = mes === 12 ? 1 : mes + 1
+  const proximoAno = mes === 12 ? ano + 1 : ano
+
+  return [
+    { ano, mes, label: competenciaLabel(mes, ano) },
+    { ano: proximoAno, mes: proximoMes, label: competenciaLabel(proximoMes, proximoAno) },
+  ]
+}
+
 export const TIPOS_ESCOPO: TipoEscopo[] = ['global', 'departamento', 'cargo', 'individual']
 
 export function escopoLabel(escopo: TipoEscopo | string): string {

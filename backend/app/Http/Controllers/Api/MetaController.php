@@ -9,6 +9,7 @@ use App\Services\ComissaoService;
 use App\Services\CompetenciaService;
 use App\Services\ProgressoService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class MetaController extends Controller
 {
@@ -167,6 +168,54 @@ class MetaController extends Controller
         );
 
         return ['criadas' => $criadas];
+    }
+
+    public function clonar(Request $request, Meta $meta)
+    {
+        $this->authorize('create', Meta::class);
+
+        $data = $request->validate([
+            'ano' => ['required', 'integer', 'min:2020', 'max:2100'],
+            'mes' => ['required', 'integer', 'min:1', 'max:12'],
+            'origem_ano' => ['nullable', 'integer'],
+            'origem_mes' => ['nullable', 'integer', 'min:1', 'max:12'],
+            'tipo_escopo' => ['nullable', 'string', Rule::in(['individual', 'cargo', 'departamento', 'global'])],
+            'usuario_ids' => ['nullable', 'array'],
+            'usuario_ids.*' => ['integer', 'exists:users,id'],
+            'cargo_ids' => ['nullable', 'array'],
+            'cargo_ids.*' => ['integer', 'exists:cargos,id'],
+            'departamento_ids' => ['nullable', 'array'],
+            'departamento_ids.*' => ['integer', 'exists:departamentos,id'],
+        ]);
+
+        $escopo = isset($data['tipo_escopo'])
+            ? [
+                'tipo_escopo' => $data['tipo_escopo'],
+                'usuario_ids' => $data['usuario_ids'] ?? [],
+                'cargo_ids' => $data['cargo_ids'] ?? [],
+                'departamento_ids' => $data['departamento_ids'] ?? [],
+            ]
+            : null;
+
+        $resultado = $this->competencias->clonar(
+            $meta,
+            (int) $data['ano'],
+            (int) $data['mes'],
+            isset($data['origem_ano']) ? (int) $data['origem_ano'] : null,
+            isset($data['origem_mes']) ? (int) $data['origem_mes'] : null,
+            $escopo,
+            $request->user()?->id,
+        );
+
+        $competencia = $resultado['competencia'];
+
+        return response()->json([
+            'ano' => $competencia->ano,
+            'mes' => $competencia->mes,
+            'valor_meta' => (float) $competencia->valor_meta,
+            'meta_id' => $resultado['meta']->id,
+            'duplicada' => $resultado['duplicada'],
+        ], 201);
     }
 
     /**

@@ -31,6 +31,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'niveis_comissao',
     'marco_por_pessoa',
     'created_by',
+    'cloned_from_id',
     'ativo',
 ])]
 class Meta extends Model
