@@ -7,6 +7,7 @@ use App\Http\Requests\StoreDwConexaoRequest;
 use App\Models\DwConexao;
 use App\Services\DwIndicadorService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -38,8 +39,10 @@ class DwConexaoController extends Controller
     public function update(StoreDwConexaoRequest $request, DwConexao $conexao)
     {
         $data = $request->validated();
-        if (! filled($data['senha'] ?? null)) {
-            unset($data['senha']);
+        foreach (DwConexao::SEGREDOS as $segredo) {
+            if (! filled($data[$segredo] ?? null)) {
+                unset($data[$segredo]);
+            }
         }
         $conexao->update($data);
 
@@ -61,15 +64,7 @@ class DwConexaoController extends Controller
 
     public function testarRascunho(Request $request)
     {
-        $data = $request->validate([
-            'driver' => ['required', 'in:mysql'],
-            'host' => ['required', 'string'],
-            'port' => ['required', 'integer', 'min:1', 'max:65535'],
-            'database' => ['required', 'string'],
-            'username' => ['required', 'string'],
-            'senha' => ['required', 'string'],
-            'ssl' => ['sometimes', 'boolean'],
-        ]);
+        $data = $request->validate($this->regrasTeste(true));
         $alvo = new DwConexao($data);
 
         return $this->executarTesteConexao($alvo);
@@ -77,10 +72,16 @@ class DwConexaoController extends Controller
 
     public function testar(DwConexao $conexao, Request $request)
     {
-        if ($request->filled('senha') || $request->filled('host')) {
-            $conexao->fill($request->only(['host', 'port', 'database', 'username', 'ssl', 'driver']));
-            if ($request->filled('senha')) {
-                $conexao->senha = $request->string('senha')->toString();
+        if ($request->filled('senha') || $request->filled('host') || $request->filled('acesso')) {
+            $conexao->fill($request->only([
+                'host', 'port', 'database', 'username', 'ssl', 'driver', 'acesso',
+                'ssh_host', 'ssh_port', 'ssh_username', 'ssh_auth',
+                'vpn_tipo', 'vpn_servidor', 'vpn_username',
+            ]));
+            foreach (DwConexao::SEGREDOS as $segredo) {
+                if ($request->filled($segredo)) {
+                    $conexao->{$segredo} = $request->string($segredo)->toString();
+                }
             }
         }
 
@@ -120,8 +121,51 @@ class DwConexaoController extends Controller
             'username' => $conexao->username,
             'ssl' => $conexao->ssl,
             'ativa' => $conexao->ativa,
-            'tem_senha' => filled($conexao->getAttributes()['senha'] ?? null),
+            'acesso' => $conexao->acesso ?: 'direto',
+            'ssh_host' => $conexao->ssh_host,
+            'ssh_port' => $conexao->ssh_port ?: 22,
+            'ssh_username' => $conexao->ssh_username,
+            'ssh_auth' => $conexao->ssh_auth ?: 'chave',
+            'vpn_tipo' => $conexao->vpn_tipo,
+            'vpn_servidor' => $conexao->vpn_servidor,
+            'vpn_username' => $conexao->vpn_username,
+            'tem_senha' => $conexao->temSegredo('senha'),
+            'tem_ssh_senha' => $conexao->temSegredo('ssh_senha'),
+            'tem_ssh_chave' => $conexao->temSegredo('ssh_chave_privada'),
+            'tem_vpn_config' => $conexao->temSegredo('vpn_config'),
+            'tem_vpn_psk' => $conexao->temSegredo('vpn_psk'),
+            'tem_vpn_senha' => $conexao->temSegredo('vpn_senha'),
             'variaveis_count' => (int) $conexao->variaveis_count,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function regrasTeste(bool $criar): array
+    {
+        return [
+            'driver' => ['required', 'in:mysql'],
+            'host' => ['required', 'string', 'max:255'],
+            'port' => ['required', 'integer', 'min:1', 'max:65535'],
+            'database' => ['required', 'string'],
+            'username' => ['required', 'string'],
+            'senha' => [$criar ? 'required' : 'nullable', 'string'],
+            'ssl' => ['sometimes', 'boolean'],
+            'acesso' => ['nullable', Rule::in(DwConexao::ACESSOS)],
+            'ssh_host' => ['nullable', 'string', 'max:255'],
+            'ssh_port' => ['nullable', 'integer', 'min:1', 'max:65535'],
+            'ssh_username' => ['nullable', 'string', 'max:128'],
+            'ssh_auth' => ['nullable', Rule::in(DwConexao::SSH_AUTHS)],
+            'ssh_senha' => ['nullable', 'string', 'max:500'],
+            'ssh_chave_privada' => ['nullable', 'string', 'max:16000'],
+            'ssh_passphrase' => ['nullable', 'string', 'max:500'],
+            'vpn_tipo' => ['nullable', Rule::in(DwConexao::VPN_TIPOS)],
+            'vpn_servidor' => ['nullable', 'string', 'max:255'],
+            'vpn_psk' => ['nullable', 'string', 'max:500'],
+            'vpn_config' => ['nullable', 'string', 'max:20000'],
+            'vpn_username' => ['nullable', 'string', 'max:128'],
+            'vpn_senha' => ['nullable', 'string', 'max:500'],
         ];
     }
 }

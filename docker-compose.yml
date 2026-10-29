@@ -22,6 +22,10 @@ services:
       - ./backend:/var/www/html
     ports:
       - "127.0.0.1:8000:8000"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
     depends_on:
       db:
         condition: service_healthy
@@ -51,6 +55,10 @@ services:
     working_dir: /var/www/html
     volumes:
       - ./backend:/var/www/html
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
     depends_on:
       db:
         condition: service_healthy

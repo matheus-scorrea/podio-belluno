@@ -8,6 +8,7 @@ use App\Models\MetaCompetencia;
 use App\Models\Variavel;
 use App\Models\VariavelValor;
 use App\Support\DwConsultaSql;
+use App\Support\DwTunel;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use PDO;
@@ -29,8 +30,9 @@ class DwIndicadorService
 
     public function testarConexao(DwConexao $conexao): void
     {
-        $pdo = $this->pdo($conexao);
-        $pdo->query('SELECT 1');
+        $this->comPdo($conexao, function (PDO $pdo): void {
+            $pdo->query('SELECT 1');
+        });
     }
 
     public function mensagemPublica(Throwable $e): string
@@ -72,31 +74,33 @@ class DwIndicadorService
     public function executar(string $sql, int $ano, int $mes, ?DwConexao $conexao = null): float
     {
         $sql = DwConsultaSql::normalizar($sql);
-        $pdo = $this->pdo($conexao);
-        $statement = $pdo->prepare($sql);
-        if (str_contains($sql, ':ano')) {
-            $statement->bindValue(':ano', $ano, PDO::PARAM_INT);
-        }
-        if (str_contains($sql, ':mes')) {
-            $statement->bindValue(':mes', $mes, PDO::PARAM_INT);
-        }
-        $statement->execute();
-        $linhas = $statement->fetchAll(PDO::FETCH_NUM);
 
-        if (count($linhas) > 1) {
-            throw new InvalidArgumentException('A consulta deve devolver uma única linha.');
-        }
+        return $this->comPdo($conexao, function (PDO $pdo) use ($sql, $ano, $mes): float {
+            $statement = $pdo->prepare($sql);
+            if (str_contains($sql, ':ano')) {
+                $statement->bindValue(':ano', $ano, PDO::PARAM_INT);
+            }
+            if (str_contains($sql, ':mes')) {
+                $statement->bindValue(':mes', $mes, PDO::PARAM_INT);
+            }
+            $statement->execute();
+            $linhas = $statement->fetchAll(PDO::FETCH_NUM);
 
-        if ($linhas === []) {
-            return 0.0;
-        }
+            if (count($linhas) > 1) {
+                throw new InvalidArgumentException('A consulta deve devolver uma única linha.');
+            }
 
-        $valor = $linhas[0][0] ?? null;
-        if (! is_numeric($valor)) {
-            throw new InvalidArgumentException('A consulta deve devolver um valor numérico.');
-        }
+            if ($linhas === []) {
+                return 0.0;
+            }
 
-        return round((float) $valor, 2);
+            $valor = $linhas[0][0] ?? null;
+            if (! is_numeric($valor)) {
+                throw new InvalidArgumentException('A consulta deve devolver um valor numérico.');
+            }
+
+            return round((float) $valor, 2);
+        });
     }
 
     public function marcarTesteOk(Variavel $variavel): void
@@ -170,22 +174,44 @@ class DwIndicadorService
     {
         $mensagem = trim($e->getMessage());
         $mensagem = preg_replace('/password=[^;\s]*/i', 'password=***', $mensagem) ?? $mensagem;
+        $mensagem = preg_replace('/SSHPASS=[^\s]*/i', 'SSHPASS=***', $mensagem) ?? $mensagem;
 
         return $mensagem !== '' ? mb_substr($mensagem, 0, 500) : 'Falha ao consultar o data warehouse.';
     }
 
-    private function pdo(?DwConexao $conexao): PDO
+    /**
+     * @template T
+     * @param  callable(PDO): T  $usar
+     * @return T
+     */
+    private function comPdo(?DwConexao $conexao, callable $usar): mixed
     {
         if ($conexao === null) {
             throw new InvalidArgumentException('Selecione uma conexão de banco para esta variável.');
         }
 
+        $tunel = DwTunel::abrir($conexao);
+        try {
+            return $usar($this->pdo($conexao, $tunel));
+        } finally {
+            $tunel?->fechar();
+        }
+    }
+
+    private function pdo(DwConexao $conexao, ?DwTunel $tunel): PDO
+    {
         if ($conexao->driver === 'sqlite' && in_array($conexao->database, [':memory:', ''], true)) {
             return DB::connection('dw')->getPdo();
         }
 
+        $config = $conexao->configLaravel();
+        if ($tunel !== null) {
+            $config['host'] = $tunel->hostLocal();
+            $config['port'] = $tunel->portaLocal();
+        }
+
         $nome = 'dw_conexao_'.($conexao->id ?: 'tmp_'.spl_object_id($conexao));
-        config(["database.connections.$nome" => $conexao->configLaravel()]);
+        config(["database.connections.$nome" => $config]);
         DB::purge($nome);
 
         return DB::connection($nome)->getPdo();

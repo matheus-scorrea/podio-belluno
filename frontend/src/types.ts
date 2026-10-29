@@ -256,6 +256,10 @@ export type MetaCompetencia = {
 
 export type VariavelStatus = 'rascunho' | 'publicada' | 'inativa'
 
+export type DwAcesso = 'direto' | 'ssh' | 'vpn'
+export type DwSshAuth = 'chave' | 'senha'
+export type DwVpnTipo = 'openvpn' | 'wireguard' | 'l2tp'
+
 export type DwConexao = {
   id: number
   nome: string
@@ -266,7 +270,20 @@ export type DwConexao = {
   username: string
   ssl: boolean
   ativa: boolean
+  acesso: DwAcesso
+  ssh_host?: string | null
+  ssh_port?: number | null
+  ssh_username?: string | null
+  ssh_auth?: DwSshAuth | null
+  vpn_tipo?: DwVpnTipo | null
+  vpn_servidor?: string | null
+  vpn_username?: string | null
   tem_senha: boolean
+  tem_ssh_senha?: boolean
+  tem_ssh_chave?: boolean
+  tem_vpn_config?: boolean
+  tem_vpn_psk?: boolean
+  tem_vpn_senha?: boolean
   variaveis_count?: number
 }
 

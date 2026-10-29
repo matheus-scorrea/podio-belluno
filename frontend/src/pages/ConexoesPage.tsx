@@ -86,6 +86,7 @@ export function ConexoesPage() {
           <TableHead>
             <TableRow>
               <TableCell>Nome</TableCell>
+              <TableCell>Acesso</TableCell>
               <TableCell>Driver</TableCell>
               <TableCell sx={hideColXs}>Host</TableCell>
               <TableCell>Banco</TableCell>
@@ -97,7 +98,7 @@ export function ConexoesPage() {
             {isLoading &&
               Array.from({ length: 3 }).map((_, idx) => (
                 <TableRow key={`sk-${idx}`}>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     <Skeleton height={36} />
                   </TableCell>
                 </TableRow>
@@ -105,6 +106,17 @@ export function ConexoesPage() {
             {(data ?? []).map((item) => (
               <TableRow key={item.id} hover>
                 <TableCell sx={{ fontWeight: 600 }}>{item.nome}</TableCell>
+                <TableCell>
+                  {item.acesso === 'ssh'
+                    ? 'SSH'
+                    : item.acesso === 'vpn'
+                      ? item.vpn_tipo === 'l2tp'
+                        ? 'VPN L2TP'
+                        : item.vpn_tipo === 'wireguard'
+                          ? 'VPN WireGuard'
+                          : 'VPN OpenVPN'
+                      : 'Direto'}
+                </TableCell>
                 <TableCell>{item.driver}</TableCell>
                 <TableCell sx={hideColXs}>
                   {item.host}:{item.port}

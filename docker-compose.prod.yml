@@ -31,6 +31,10 @@ services:
       DB_CONNECTION: pgsql
       DB_HOST: db
       DB_PORT: 5432
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
     depends_on:
       db:
         condition: service_healthy
@@ -51,6 +55,10 @@ services:
       DB_CONNECTION: pgsql
       DB_HOST: db
       DB_PORT: 5432
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
     depends_on:
       db:
         condition: service_healthy

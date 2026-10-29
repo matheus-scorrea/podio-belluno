@@ -22,6 +22,7 @@ class DwConexaoFactory extends Factory
             'senha' => 'secret',
             'ssl' => false,
             'ativa' => true,
+            'acesso' => 'direto',
         ];
     }
 }
