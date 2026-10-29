@@ -1,5 +1,6 @@
 import { Stack, Typography } from '@mui/material'
-import { formatBonus } from '../lib/labels'
+import { formatBonus, formatNumero } from '../lib/labels'
+import { isUnidadePercentual } from '../lib/percentualViz'
 import type { DashboardMeta } from '../types'
 
 export function SeriesPessoasList({ meta }: { meta: DashboardMeta }) {
@@ -23,7 +24,9 @@ export function SeriesPessoasList({ meta }: { meta: DashboardMeta }) {
           <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
             {meta.modo_bonus === 'faixa_unidade'
               ? `${pessoa.escada?.faixa_atual ?? 'Abaixo da primeira faixa'} · ${pessoa.valor} ${meta.unidade} · ${formatBonus(pessoa.escada?.bonus)}`
-              : `${pessoa.valor} ${meta.unidade} · ${pessoa.percentual}%`}
+              : isUnidadePercentual(meta.unidade)
+                ? `${formatNumero(pessoa.valor)}%`
+                : `${pessoa.valor} ${meta.unidade} · ${pessoa.percentual}%`}
           </Typography>
         </Stack>
       ))}

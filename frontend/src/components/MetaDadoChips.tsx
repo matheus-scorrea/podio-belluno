@@ -6,6 +6,7 @@ import PercentOutlinedIcon from '@mui/icons-material/PercentOutlined'
 import ShowChartOutlinedIcon from '@mui/icons-material/ShowChartOutlined'
 import SpeedOutlinedIcon from '@mui/icons-material/SpeedOutlined'
 import SportsScoreOutlinedIcon from '@mui/icons-material/SportsScoreOutlined'
+import ViewWeekOutlinedIcon from '@mui/icons-material/ViewWeekOutlined'
 import { Chip, Tooltip } from '@mui/material'
 import { alvoLabel, chartLabel, formatBonus } from '../lib/labels'
 import { chipBonusSx, chipFilledSx, chipOutlinedSx } from '../theme/chips'
@@ -16,6 +17,8 @@ function iconeTipo(tipo: string) {
       return <SpeedOutlinedIcon />
     case 'progress_bar':
       return <LinearScaleOutlinedIcon />
+    case 'bullet':
+      return <ViewWeekOutlinedIcon />
     case 'line':
       return <ShowChartOutlinedIcon />
     case 'column':

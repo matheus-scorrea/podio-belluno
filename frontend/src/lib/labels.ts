@@ -130,6 +130,8 @@ export function chartLabel(tipo: ChartTipo | string): string {
       return 'Velocímetro'
     case 'progress_bar':
       return 'Barra de progresso'
+    case 'bullet':
+      return 'Bullet'
     case 'line':
       return 'Linha temporal'
     case 'column':

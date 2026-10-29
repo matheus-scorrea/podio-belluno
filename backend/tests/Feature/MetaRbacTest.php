@@ -1162,4 +1162,33 @@ class MetaRbacTest extends TestCase
 
         $this->assertSoftDeleted($meta);
     }
+
+    public function test_visual_bullet_somente_com_unidade_percentual(): void
+    {
+        $org = $this->createOrg();
+
+        $this->actingAs($org['direcao'])->postJson('/api/metas', [
+            'titulo' => 'NPS bullet',
+            'ano' => 2026,
+            'mes' => 9,
+            'tipo_escopo' => 'global',
+            'valor_meta' => 90,
+            'unidade' => '%',
+            'sentido' => 'maior_melhor',
+            'chart_tipo' => 'bullet',
+            'chart_cor' => '#00A8E8',
+        ])->assertCreated()->assertJsonPath('chart_tipo', 'bullet');
+
+        $this->actingAs($org['direcao'])->postJson('/api/metas', [
+            'titulo' => 'Receita bullet',
+            'ano' => 2026,
+            'mes' => 9,
+            'tipo_escopo' => 'global',
+            'valor_meta' => 100,
+            'unidade' => 'R$',
+            'sentido' => 'maior_melhor',
+            'chart_tipo' => 'bullet',
+            'chart_cor' => '#00A8E8',
+        ])->assertUnprocessable()->assertJsonValidationErrors(['chart_tipo']);
+    }
 }

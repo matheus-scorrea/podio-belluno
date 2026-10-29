@@ -1,7 +1,8 @@
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import { Box, Chip, Paper, Stack, Tooltip, Typography } from '@mui/material'
 import { renderMetaChart } from '../charts/chartFactory'
-import { bonusCadastroLabel } from '../lib/labels'
+import { bonusCadastroLabel, formatNumero } from '../lib/labels'
+import { isUnidadePercentual, rotuloValorPct } from '../lib/percentualViz'
 import { EscopoAtribuicao } from './EscopoAtribuicao'
 import { BonusChip } from './MetaDadoChips'
 import { statusColor, statusLabel } from '../theme/status'
@@ -51,7 +52,9 @@ export function MetaCard({ meta, compact = false }: { meta: DashboardMeta; compa
           </Typography>
           {meta.chart.tipo !== 'marco' && meta.chart.tipo !== 'comissao' && !faixa && (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-              {`${meta.valor_realizado} / ${meta.valor_meta} ${meta.unidade}`}
+              {isUnidadePercentual(meta.unidade)
+                ? rotuloValorPct(meta.valor_realizado, meta.valor_meta)
+                : `${meta.valor_realizado} / ${meta.valor_meta} ${meta.unidade}`}
             </Typography>
           )}
           {meta.chart.tipo === 'marco' && (
@@ -97,9 +100,9 @@ export function MetaCard({ meta, compact = false }: { meta: DashboardMeta; compa
         </Stack>
       </Stack>
       <Box sx={{ mt: 1, flex: 1 }}>
-        {compact && meta.modo_bonus !== 'faixa_unidade' && meta.chart.tipo !== 'progress_bar' && meta.chart.tipo !== 'marco' && meta.chart.tipo !== 'comissao' ? (
+        {compact && meta.modo_bonus !== 'faixa_unidade' && meta.chart.tipo !== 'progress_bar' && meta.chart.tipo !== 'bullet' && meta.chart.tipo !== 'marco' && meta.chart.tipo !== 'comissao' ? (
           <Typography variant="h5" sx={{ fontVariantNumeric: 'tabular-nums', color: meta.chart.cor, mt: 2 }}>
-            {meta.percentual}%
+            {isUnidadePercentual(meta.unidade) ? `${formatNumero(meta.valor_realizado)}%` : `${meta.percentual}%`}
           </Typography>
         ) : (
           renderMetaChart(meta)
