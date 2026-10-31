@@ -547,17 +547,21 @@ OPT);
     private static function esperarIpsecPronto(string $conn): void
     {
         $inicio = microtime(true);
+        $ultimo = '';
         while (microtime(true) - $inicio < 8) {
-            $p = new Process(self::comRoot(['ipsec', 'status', $conn]));
+            $p = new Process(self::comRoot(['ipsec', 'statusall']));
             $p->setTimeout(4);
             $p->run();
-            if ($p->isSuccessful() && str_contains($p->getOutput(), $conn)) {
+            $ultimo = trim($p->getOutput().' '.$p->getErrorOutput());
+            if (str_contains($ultimo, $conn)) {
                 return;
             }
             usleep(200000);
         }
 
-        throw new RuntimeException('IPsec subiu, mas a conexão L2TP ainda não apareceu no status.');
+        throw new RuntimeException(trim(
+            'IPsec subiu, mas a conexão '.$conn.' não carregou. '.mb_substr($ultimo, 0, 350)
+        ));
     }
 
     /**
