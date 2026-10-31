@@ -26,6 +26,7 @@ services:
       - NET_ADMIN
     devices:
       - /dev/net/tun
+      - /dev/ppp
     depends_on:
       db:
         condition: service_healthy
@@ -59,6 +60,7 @@ services:
       - NET_ADMIN
     devices:
       - /dev/net/tun
+      - /dev/ppp
     depends_on:
       db:
         condition: service_healthy
