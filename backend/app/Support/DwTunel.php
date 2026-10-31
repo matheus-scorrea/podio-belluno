@@ -334,7 +334,8 @@ OPT);
             self::executarSilencioso(['ipsec', 'stop']);
             self::executar(['ipsec', 'start', '--conf', $confIpsec]);
             $parouIpsec = true;
-            self::executar(['ipsec', 'up', $conn]);
+            self::esperarIpsecPronto($conn);
+            self::executar(['ipsec', 'up', $conn], 45);
             self::executar(['xl2tpd', '-c', $xl, '-C', $control, '-p', $pidfile]);
             self::executarSilencioso(['chmod', '0644', $pidfile]);
             self::executarSilencioso(['chmod', '0666', $control]);
@@ -522,14 +523,41 @@ OPT);
     /**
      * @param  list<string>  $cmd
      */
-    private static function executar(array $cmd): void
+    private static function executar(array $cmd, int $timeout = 20): void
     {
         $p = new Process(self::comRoot($cmd));
-        $p->setTimeout(20);
+        $p->setTimeout($timeout);
         $p->run();
         if (! $p->isSuccessful()) {
-            throw new RuntimeException(trim($p->getErrorOutput().' '.$p->getOutput()) ?: 'Falha ao configurar o túnel.');
+            throw new RuntimeException(self::mensagemFalha($cmd, $p));
         }
+    }
+
+    /**
+     * @param  list<string>  $cmd
+     */
+    private static function mensagemFalha(array $cmd, Process $p): string
+    {
+        $saida = trim($p->getErrorOutput()."\n".$p->getOutput());
+        $rotulo = implode(' ', $cmd).' (exit '.($p->getExitCode() ?? '?').')';
+
+        return $saida !== '' ? mb_substr($saida.' — '.$rotulo, 0, 500) : $rotulo;
+    }
+
+    private static function esperarIpsecPronto(string $conn): void
+    {
+        $inicio = microtime(true);
+        while (microtime(true) - $inicio < 8) {
+            $p = new Process(self::comRoot(['ipsec', 'status', $conn]));
+            $p->setTimeout(4);
+            $p->run();
+            if ($p->isSuccessful() && str_contains($p->getOutput(), $conn)) {
+                return;
+            }
+            usleep(200000);
+        }
+
+        throw new RuntimeException('IPsec subiu, mas a conexão L2TP ainda não apareceu no status.');
     }
 
     /**
