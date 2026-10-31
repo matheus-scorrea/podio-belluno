@@ -336,6 +336,8 @@ OPT);
             $parouIpsec = true;
             self::executar(['ipsec', 'up', $conn]);
             self::executar(['xl2tpd', '-c', $xl, '-C', $control, '-p', $pidfile]);
+            self::executarSilencioso(['chmod', '0644', $pidfile]);
+            self::executarSilencioso(['chmod', '0666', $control]);
             $iface = self::esperarPppNova($antes);
             self::rotaHost($conexao->host, $iface);
         } catch (\Throwable $e) {
@@ -381,7 +383,7 @@ OPT);
     private static function iniciar(array $cmd, array $env = []): array
     {
         $pipes = [];
-        $proc = proc_open($cmd, [
+        $proc = proc_open(self::comRoot($cmd), [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
             2 => ['pipe', 'w'],
@@ -470,13 +472,16 @@ OPT);
         if ($controle === null || $controle === '' || ! file_exists($controle)) {
             return;
         }
-        $fp = @fopen($controle, 'cb');
-        if (! is_resource($fp)) {
+        if (preg_match('/^[A-Za-z0-9 ._-]+$/', $comando) !== 1) {
             return;
         }
-        stream_set_blocking($fp, false);
-        @fwrite($fp, $comando."\n");
-        fclose($fp);
+        try {
+            $p = new Process(self::comRoot(['tee', $controle]));
+            $p->setTimeout(2);
+            $p->setInput($comando."\n");
+            $p->run();
+        } catch (\Throwable) {
+        }
     }
 
     private static function matarPidFile(?string $pidfile): void
@@ -519,12 +524,30 @@ OPT);
      */
     private static function executar(array $cmd): void
     {
-        $p = new Process($cmd);
+        $p = new Process(self::comRoot($cmd));
         $p->setTimeout(20);
         $p->run();
         if (! $p->isSuccessful()) {
             throw new RuntimeException(trim($p->getErrorOutput().' '.$p->getOutput()) ?: 'Falha ao configurar o túnel.');
         }
+    }
+
+    /**
+     * @param  list<string>  $cmd
+     * @return list<string>
+     */
+    private static function comRoot(array $cmd): array
+    {
+        $bin = $cmd[0] ?? '';
+        if (! in_array($bin, ['ipsec', 'xl2tpd', 'ip', 'wg', 'openvpn', 'kill', 'tee', 'chmod'], true)) {
+            return $cmd;
+        }
+        if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+            return $cmd;
+        }
+        self::exigirBinario('sudo', 'sudo');
+
+        return array_merge(['sudo', '-n'], $cmd);
     }
 
     /**
