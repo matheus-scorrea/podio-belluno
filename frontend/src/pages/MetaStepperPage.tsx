@@ -177,7 +177,7 @@ function TipoIndicadorHelp({ tipo }: { tipo: 'quantitativo' | 'marco' | 'comissa
           Comissão de vendedor
         </Typography>
         <Typography variant="body2" sx={{ mt: 0.75 }}>
-          Cada vendedor lança a própria receita recorrente e a adesão no mês. As faixas (níveis) definem o percentual e o prêmio.
+          As faixas definem o percentual e o prêmio. No escopo, escolha se cada pessoa lança a própria receita e adesão ou se o resultado é único do grupo nesta competência.
         </Typography>
         <Typography variant="body2" sx={{ mt: 0.75 }}>
           O pagamento sai da tabela de comissão. Dá para ligar o piso da primeira faixa para o closer receber mesmo sem bater a Meta 1.
@@ -432,6 +432,7 @@ export function MetaStepperPage() {
   function payload() {
     const ehMarco = chartTipo === 'marco'
     const ehComissao = chartTipo === 'comissao'
+    const varios = tipoEscopo !== 'individual' || usuariosSel.length > 1
     return {
       titulo,
       descricao,
@@ -453,7 +454,7 @@ export function MetaStepperPage() {
       niveis_faixa: !ehMarco && !ehComissao && sentido !== 'menor_melhor' && modoBonus === 'faixa_unidade'
         ? faixas
         : undefined,
-      marco_por_pessoa: porPessoa,
+      marco_por_pessoa: ehComissao && !varios ? true : porPessoa,
       modo_bonus: ehMarco || ehComissao || sentido === 'menor_melhor' ? 'fixo' : modoBonus,
       bonus_piso_percentual: !ehMarco && !ehComissao && sentido !== 'menor_melhor' && modoBonus === 'linear'
         ? Number(bonusPiso)
@@ -492,7 +493,7 @@ export function MetaStepperPage() {
   const ehQuantitativa = chartTipo !== 'marco' && !ehComissao
   const ehFaixaUnidade = ehQuantitativa && modoBonus === 'faixa_unidade'
   const escopoPodeVariasPessoas = tipoEscopo !== 'individual' || usuariosSel.length > 1
-  const mostrarPorPessoa = (chartTipo === 'marco' || ehQuantitativa) && escopoPodeVariasPessoas
+  const mostrarPorPessoa = escopoPodeVariasPessoas
   const podeUsarVariavel = ehQuantitativa && chartTipo !== 'column' && !(mostrarPorPessoa && porPessoa)
 
   useEffect(() => {
@@ -590,6 +591,7 @@ export function MetaStepperPage() {
                         setSentido('maior_melhor')
                         setTipoEscopo((atual) => (atual === 'cargo' || atual === 'individual' ? atual : 'cargo'))
                         setModoBonus('fixo')
+                        setPorPessoa(true)
                         return
                       }
                       if (chartTipo === 'marco' || chartTipo === 'comissao') {
@@ -945,8 +947,8 @@ export function MetaStepperPage() {
               <Stack spacing={2.5} sx={{ maxWidth: 720 }}>
                 <Typography variant="body2" color="text.secondary">
                   {ehComissao
-                    ? 'Escolha os vendedores ou o cargo. Cada pessoa lança a própria receita e adesão.'
-                    : 'Defina quem se enquadra nesta meta. O colaborador só vê o que estiver no próprio recorte.'}
+                    ? 'Escolha os vendedores ou o cargo. Se o escopo tiver mais de uma pessoa, defina se o desempenho é individual ou único do grupo nesta competência.'
+                    : 'Defina quem se enquadra nesta meta. Se o escopo tiver mais de uma pessoa, escolha se o desempenho é individual ou único do grupo nesta competência.'}
                 </Typography>
                 <RadioGroup value={tipoEscopo} onChange={(e) => setTipoEscopo(e.target.value as TipoEscopo)}>
                   <FormControlLabel value="individual" control={<Radio />} label="Individual (usuários)" />
@@ -993,7 +995,7 @@ export function MetaStepperPage() {
                 {mostrarPorPessoa && (
                   <FormControl>
                     <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
-                      {chartTipo === 'marco' ? 'Como o marco é concluído' : 'Como o valor é lançado'}
+                      Como o desempenho é medido nesta competência
                     </Typography>
                     <RadioGroup
                       value={porPessoa ? 'por_pessoa' : 'compartilhado'}
@@ -1004,8 +1006,10 @@ export function MetaStepperPage() {
                         control={<Radio />}
                         label={
                           chartTipo === 'marco'
-                            ? 'Um marco compartilhado: quem disparar marca para o grupo'
-                            : 'Um valor geral: quem lançar registra para o grupo'
+                            ? 'Global: um marco compartilhado vale para o grupo'
+                            : ehComissao
+                              ? 'Global: receita e adesão únicas do grupo'
+                              : 'Global: um lançamento vale para o grupo'
                         }
                       />
                       <FormControlLabel
@@ -1013,8 +1017,10 @@ export function MetaStepperPage() {
                         control={<Radio />}
                         label={
                           chartTipo === 'marco'
-                            ? 'Cada pessoa conclui o próprio marco'
-                            : 'Cada pessoa tem o próprio valor'
+                            ? 'Individual: cada pessoa conclui o próprio marco'
+                            : ehComissao
+                              ? 'Individual: cada pessoa lança a própria receita e adesão'
+                              : 'Individual: cada pessoa lança e é medida à parte'
                         }
                       />
                     </RadioGroup>
@@ -1033,7 +1039,7 @@ export function MetaStepperPage() {
                   <Alert severity="info">
                     {mostrarPorPessoa && porPessoa
                       ? 'O painel lista feito ou pendente por pessoa. O marco só fica concluído quando todas concluírem.'
-                      : 'O painel mostra só se o marco foi concluído ou ainda está pendente.'}
+                      : 'O painel mostra o marco do grupo nesta competência: concluído ou pendente.'}
                   </Alert>
                 ) : ehComissao || ehFaixaUnidade ? (
                   <ToggleButtonGroup
@@ -1049,7 +1055,7 @@ export function MetaStepperPage() {
                   <>
                     {mostrarPorPessoa && porPessoa ? (
                       <Alert severity="info">
-                        Cada pessoa lança o próprio valor. O alvo vale para cada um. No fechamento entra quem tiver direito ao bônus da regra cadastrada.
+                        Cada pessoa lança o próprio valor nesta competência. O alvo vale para cada um. No fechamento entra quem tiver direito ao bônus da regra cadastrada.
                       </Alert>
                     ) : (
                       chartTipo === 'column' &&

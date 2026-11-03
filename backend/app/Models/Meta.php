@@ -126,7 +126,7 @@ class Meta extends Model
 
     public function isPorPessoa(): bool
     {
-        return (bool) $this->marco_por_pessoa && ($this->isMarco() || $this->isQuantitativa());
+        return (bool) $this->marco_por_pessoa;
     }
 
     public function isMarcoPorPessoa(): bool
@@ -141,7 +141,7 @@ class Meta extends Model
 
     public function isPorGrao(): bool
     {
-        return $this->isComparativa() || $this->isComissao() || $this->isPorPessoa();
+        return $this->isComparativa() || $this->isPorPessoa();
     }
 
     public function modoBonus(): string

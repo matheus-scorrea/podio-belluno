@@ -49,6 +49,7 @@ class MetaComissaoTest extends TestCase
         $this->assertCount(6, $criada->json('niveis_comissao'));
         $this->assertEquals(25000, (float) $criada->json('valor_meta'));
         $this->assertFalse($criada->json('comissao_paga_piso'));
+        $this->assertTrue($criada->json('marco_por_pessoa'));
     }
 
     public function test_direcao_liga_piso_da_comissao_do_closer(): void
@@ -89,6 +90,7 @@ class MetaComissaoTest extends TestCase
             'chart_tipo' => 'comissao',
             'unidade' => 'R$',
             'agregacao' => 'soma',
+            'marco_por_pessoa' => true,
             'niveis_comissao' => ComissaoService::tabelaBelluno(),
         ]);
         $meta->usuarios()->sync([$org['colaborador']->id, $colega->id]);
@@ -130,6 +132,7 @@ class MetaComissaoTest extends TestCase
             'chart_tipo' => 'comissao',
             'unidade' => 'R$',
             'agregacao' => 'soma',
+            'marco_por_pessoa' => true,
             'niveis_comissao' => ComissaoService::tabelaBelluno(),
         ]);
         $meta->usuarios()->sync([$org['colaborador']->id, $org['outroLider']->id]);
@@ -158,6 +161,62 @@ class MetaComissaoTest extends TestCase
         $ana = collect($item['comissao']['vendedores'])->firstWhere('usuario_id', $org['colaborador']->id);
         $this->assertSame('META 6', $ana['nivel']);
         $this->assertEquals(3750, $ana['total']);
+    }
+
+    public function test_comissao_com_varias_pessoas_pode_ser_global_na_competencia(): void
+    {
+        $org = $this->createOrg();
+        $colega = User::factory()->create([
+            'departamento_id' => $org['dept']->id,
+            'cargo_id' => $org['comumCargo']->id,
+        ]);
+
+        $criada = $this->actingAs($org['direcao'])
+            ->postJson('/api/metas', $this->payloadComissao($org, [
+                'usuario_ids' => [$org['colaborador']->id, $colega->id],
+                'marco_por_pessoa' => false,
+            ]))
+            ->assertCreated();
+
+        $this->assertFalse($criada->json('marco_por_pessoa'));
+        $meta = Meta::query()->findOrFail($criada->json('id'));
+        $this->assertFalse($meta->isPorPessoa());
+        $this->assertFalse($meta->isPorGrao());
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 15000,
+            'valor_adesao' => 7500,
+            'data_evento' => '2026-09-09',
+        ])->assertCreated();
+
+        $dash = $this->actingAs($org['colaborador'])->getJson('/api/dashboard?ano=2026&mes=9');
+        $item = collect($dash->json('metas'))->firstWhere('id', $meta->id);
+        $this->assertCount(1, $item['comissao']['vendedores']);
+        $this->assertNull($item['comissao']['vendedores'][0]['usuario_id']);
+        $this->assertEquals(1250, $item['comissao']['vendedores'][0]['total']);
+
+        $ids = collect($this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')->json('usuarios'))
+            ->pluck('id');
+        $this->assertTrue($ids->contains($org['colaborador']->id));
+        $this->assertTrue($ids->contains($colega->id));
+    }
+
+    public function test_comissao_com_varias_pessoas_continua_individual_por_padrao(): void
+    {
+        $org = $this->createOrg();
+        $colega = User::factory()->create([
+            'departamento_id' => $org['dept']->id,
+            'cargo_id' => $org['comumCargo']->id,
+        ]);
+
+        $criada = $this->actingAs($org['direcao'])
+            ->postJson('/api/metas', $this->payloadComissao($org, [
+                'usuario_ids' => [$org['colaborador']->id, $colega->id],
+            ]))
+            ->assertCreated();
+
+        $this->assertTrue($criada->json('marco_por_pessoa'));
+        $this->assertTrue(Meta::query()->findOrFail($criada->json('id'))->isPorPessoa());
     }
 
     public function test_meta_quantitativa_continua_com_um_valor(): void

@@ -405,6 +405,32 @@ class DashboardService
             $graos = $graos->filter(fn (array $g) => (int) ($g['departamento_id'] ?? 0) === (int) $user->departamento_id)->values();
         }
 
+        if (! $meta->isPorPessoa()) {
+            $ultimo = $ultimos->first();
+            $calc = $this->comissao->calcular(
+                $niveis,
+                (float) ($ultimo?->valor_realizado ?? 0),
+                (float) ($ultimo?->valor_adesao ?? 0),
+                (bool) $meta->comissao_paga_piso,
+            );
+
+            return [
+                'niveis' => $niveis,
+                'vendedores' => [[
+                    'usuario_id' => null,
+                    'nome' => $meta->subtitulo(),
+                    'departamento_id' => null,
+                    'nivel' => $calc['nivel'],
+                    'venda' => $calc['venda'],
+                    'adesao' => $calc['adesao'],
+                    'percentual' => $calc['percentual'],
+                    'comissao' => $calc['comissao'],
+                    'premio' => $calc['premio'],
+                    'total' => $calc['total'],
+                ]],
+            ];
+        }
+
         $vendedores = $graos->map(function (array $grao) use ($ultimos, $niveis, $meta) {
             $ultimo = $ultimos->first(fn (MetaLancamento $l) => (int) $l->usuario_alvo_id === (int) ($grao['usuario_alvo_id'] ?? 0));
             $venda = (float) ($ultimo?->valor_realizado ?? 0);

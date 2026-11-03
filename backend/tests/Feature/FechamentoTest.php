@@ -645,6 +645,7 @@ class FechamentoTest extends TestCase
             'unidade' => 'R$',
             'agregacao' => 'soma',
             'valor_bonus' => 0,
+            'marco_por_pessoa' => true,
             'niveis_comissao' => ComissaoService::tabelaBelluno(),
         ]);
         $meta->usuarios()->sync($ids);

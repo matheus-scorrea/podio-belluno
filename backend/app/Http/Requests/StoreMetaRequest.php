@@ -18,7 +18,9 @@ class StoreMetaRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'marco_por_pessoa' => $this->boolean('marco_por_pessoa'),
+            'marco_por_pessoa' => $this->exists('marco_por_pessoa')
+                ? $this->boolean('marco_por_pessoa')
+                : $this->input('chart_tipo') === 'comissao',
             'comissao_paga_piso' => $this->boolean('comissao_paga_piso'),
             'variavel_id' => $this->filled('variavel_id') ? $this->integer('variavel_id') : null,
         ]);

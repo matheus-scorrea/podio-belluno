@@ -63,7 +63,9 @@ class ProgressoService
         if ($meta->isComissao()) {
             $comissao = app(ComissaoService::class);
             $niveis = $comissao->niveisValidos($competencia->niveis_comissao ?? $meta->niveis_comissao ?? []);
-            $competencia->valor_realizado = $this->ultimosPorGrao($meta, $ano, $mes)->sum(
+            $ultimos = $this->ultimosPorGrao($meta, $ano, $mes);
+            $linhas = $meta->isPorPessoa() ? $ultimos : $ultimos->take(1);
+            $competencia->valor_realizado = $linhas->sum(
                 fn (MetaLancamento $l) => $comissao->calcular(
                     $niveis,
                     (float) $l->valor_realizado,
@@ -147,7 +149,7 @@ class ProgressoService
             'usuario_alvo_id' => $dados['usuario_alvo_id'] ?? null,
         ];
 
-        if ($meta->isComissao() || $meta->isPorPessoa()) {
+        if ($meta->isPorPessoa()) {
             if (! $user->is_direcao && ! $user->isLider()) {
                 $pedido = (int) ($alvo['usuario_alvo_id'] ?? $user->id);
                 if ($pedido !== 0 && $pedido !== (int) $user->id) {

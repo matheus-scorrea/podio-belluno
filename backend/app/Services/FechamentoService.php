@@ -258,9 +258,9 @@ class FechamentoService
         if ($meta->isComissao()) {
             $niveis = $this->comissao->niveisValidos($meta->niveis_comissao ?? []);
             $ultimos = $this->progresso->ultimosPorGrao($meta, $ano, $mes);
-            $lancamento = $ultimos->first(
-                fn (MetaLancamento $l) => (int) $l->usuario_alvo_id === (int) $user->id
-            );
+            $lancamento = $meta->isPorPessoa()
+                ? $ultimos->first(fn (MetaLancamento $l) => (int) $l->usuario_alvo_id === (int) $user->id)
+                : $ultimos->first();
             $calc = $this->comissao->calcular(
                 $niveis,
                 (float) ($lancamento?->valor_realizado ?? 0),

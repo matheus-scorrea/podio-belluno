@@ -243,7 +243,7 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
             ))}
           </Select>
         </FormControl>
-        {(selected?.comparativa || selected?.por_grao || selected?.chart_tipo === 'comissao') && selected.graos.length > 0 && (
+        {(selected?.comparativa || selected?.por_grao) && selected.graos.length > 0 && (
           <FormControl fullWidth>
             <InputLabel>
               {selected.chart_tipo === 'comissao'

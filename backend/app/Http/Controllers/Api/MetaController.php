@@ -252,7 +252,7 @@ class MetaController extends Controller
             $data['sentido'] = 'maior_melhor';
             $data['agregacao'] = 'soma';
             $data['valor_meta'] = app(ComissaoService::class)->maiorVendaMin($data['niveis_comissao'] ?? []);
-            $data['marco_por_pessoa'] = false;
+            $data['marco_por_pessoa'] = $varios ? $porPessoa : true;
             $data['comissao_paga_piso'] = filter_var($data['comissao_paga_piso'] ?? false, FILTER_VALIDATE_BOOLEAN);
             $data = $this->normalizarModoBonus($data, false);
         } else {
