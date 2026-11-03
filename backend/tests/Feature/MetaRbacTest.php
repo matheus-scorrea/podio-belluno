@@ -300,7 +300,7 @@ class MetaRbacTest extends TestCase
             'valor_realizado' => 10,
             'data_evento' => '2026-09-09',
         ])->assertUnprocessable()
-            ->assertJsonPath('errors.data_evento.0', 'Resultados só podem ser lançados no mês vigente.');
+            ->assertJsonPath('errors.data_evento.0', 'Resultados só podem ser lançados no mês vigente ou até o dia 7 do mês seguinte.');
 
         $this->actingAs($org['direcao'])->postJson("/api/metas/{$meta->id}/lancamentos", [
             'valor_realizado' => 12,
@@ -315,6 +315,24 @@ class MetaRbacTest extends TestCase
         $this->actingAs($org['lider'])->postJson("/api/metas/{$meta->id}/lancamentos", [
             'valor_realizado' => 8,
             'data_evento' => '2026-10-13',
+        ])->assertCreated();
+    }
+
+    public function test_usuario_lanca_mes_anterior_na_primeira_semana(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-05'));
+        $org = $this->createOrg();
+        $meta = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'departamento',
+            'chart_tipo' => 'gauge',
+            'titulo' => 'Meta do setor',
+        ]);
+        $meta->departamentos()->sync([$org['dept']->id]);
+
+        $this->actingAs($org['lider'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 10,
+            'data_evento' => '2026-09-09',
         ])->assertCreated();
     }
 

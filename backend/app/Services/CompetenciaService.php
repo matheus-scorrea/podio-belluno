@@ -29,6 +29,8 @@ class CompetenciaService
         );
     }
 
+    public const JANELA_LANCAMENTO_DIAS = 7;
+
     public function anterior(int $ano, int $mes): array
     {
         if ($mes === 1) {
@@ -36,6 +38,20 @@ class CompetenciaService
         }
 
         return [$ano, $mes - 1];
+    }
+
+    public function competenciaAbertaParaLancamento(int $ano, int $mes, ?Carbon $agora = null): bool
+    {
+        $agora ??= Carbon::now();
+        if ($ano === (int) $agora->year && $mes === (int) $agora->month) {
+            return true;
+        }
+        if ($agora->day > self::JANELA_LANCAMENTO_DIAS) {
+            return false;
+        }
+        [$anoAnt, $mesAnt] = $this->anterior((int) $agora->year, (int) $agora->month);
+
+        return $ano === $anoAnt && $mes === $mesAnt;
     }
 
     /**

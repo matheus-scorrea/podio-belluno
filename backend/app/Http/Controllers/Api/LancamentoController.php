@@ -107,10 +107,9 @@ class LancamentoController extends Controller
             ]);
         }
 
-        $vigente = $evento->year === now()->year && $evento->month === now()->month;
-        if (! $vigente && ! $request->user()->is_direcao) {
+        if (! $request->user()->is_direcao && ! $this->competencias->competenciaAbertaParaLancamento($evento->year, $evento->month)) {
             throw ValidationException::withMessages([
-                'data_evento' => 'Resultados só podem ser lançados no mês vigente.',
+                'data_evento' => 'Resultados só podem ser lançados no mês vigente ou até o dia 7 do mês seguinte.',
             ]);
         }
 

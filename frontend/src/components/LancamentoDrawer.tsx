@@ -24,7 +24,7 @@ import dayjs, { type Dayjs } from 'dayjs'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { useAuth } from '../auth/useAuth'
-import { competenciaLabel } from '../lib/labels'
+import { competenciaAbertaParaLancamento, competenciaLabel } from '../lib/labels'
 import type { MetaLancavel } from '../types'
 
 const PIN_KEY = 'podio.lancamento.fixar'
@@ -47,9 +47,7 @@ type Props = {
 export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
-  const hoje = dayjs()
-  const vigente = ano === hoje.year() && mes === hoje.month() + 1
-  const encerrada = !vigente && user?.is_direcao !== true
+  const encerrada = !competenciaAbertaParaLancamento(ano, mes, user?.is_direcao === true)
   const inicioMes = dayjs(`${ano}-${String(mes).padStart(2, '0')}-01`)
   const fimMes = inicioMes.endOf('month')
   const [metaId, setMetaId] = useState<number | ''>('')
@@ -209,7 +207,7 @@ export function LancamentoDrawer({ open, onClose, ano, mes }: Props) {
       {isLoading && <CircularProgress size={24} />}
       {encerrada && (
         <Alert severity="info">
-          {competenciaLabel(mes, ano)} não está vigente. Resultados só podem ser lançados no mês atual.
+          {competenciaLabel(mes, ano)} já fechou. Fora do mês atual, o lançamento vale só até o dia 7.
         </Alert>
       )}
       {!encerrada && !isLoading && (data?.length ?? 0) === 0 && (

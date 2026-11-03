@@ -9,9 +9,26 @@ export function competenciaLabel(mes: number, ano: number): string {
   return `${MESES[mes - 1] ?? mes} / ${ano}`
 }
 
-export function competenciaVigente(): { ano: number; mes: number } {
-  const hoje = new Date()
-  return { ano: hoje.getFullYear(), mes: hoje.getMonth() + 1 }
+export const JANELA_LANCAMENTO_DIAS = 7
+
+export function competenciaVigente(agora = new Date()): { ano: number; mes: number } {
+  return { ano: agora.getFullYear(), mes: agora.getMonth() + 1 }
+}
+
+export function competenciaAbertaParaLancamento(ano: number, mes: number, isDirecao = false, agora = new Date()): boolean {
+  if (isDirecao) {
+    return true
+  }
+  const vigente = competenciaVigente(agora)
+  if (ano === vigente.ano && mes === vigente.mes) {
+    return true
+  }
+  if (agora.getDate() > JANELA_LANCAMENTO_DIAS) {
+    return false
+  }
+  const anterior = vigente.mes === 1 ? { ano: vigente.ano - 1, mes: 12 } : { ano: vigente.ano, mes: vigente.mes - 1 }
+
+  return ano === anterior.ano && mes === anterior.mes
 }
 
 export function destinosClone(agora = new Date()): { ano: number; mes: number; label: string }[] {
