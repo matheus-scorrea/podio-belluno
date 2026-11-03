@@ -41,6 +41,7 @@ import { EscopoAtribuicao } from '../components/EscopoAtribuicao'
 import { FilterBar } from '../components/FilterBar'
 import { PageHeader } from '../components/PageHeader'
 import { hideColXs, ResponsiveTable } from '../components/ResponsiveTable'
+import { chipOutlinedSx } from '../theme/chips'
 import { AppShell } from '../layout/AppShell'
 import { bonusCadastroLabel, competenciaLabel, competenciaVigente, destinosClone, escopoLabel, MESES, TIPOS_ESCOPO } from '../lib/labels'
 import { cargosParaEscopo, departamentosParaSelect } from '../lib/organizacao'
@@ -62,6 +63,7 @@ type MetaRow = {
   cargos?: { id: number; nome: string }[]
   usuarios?: { id: number; name: string }[]
   escopo_usuarios?: { id: number; name: string }[]
+  marco_por_pessoa?: boolean | 0 | 1
 }
 
 function tipoEscopoPadraoClone(meta: MetaRow): TipoEscopo {
@@ -316,13 +318,23 @@ export function MetasListPage() {
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ maxWidth: { xs: 220, sm: 340 } }}>
-                    <EscopoAtribuicao
-                      tipo={m.tipo_escopo}
-                      departamentos={m.departamentos}
-                      cargos={m.cargos}
-                      usuarios={m.usuarios}
-                      pessoas={m.escopo_usuarios}
-                    />
+                    <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
+                      <EscopoAtribuicao
+                        tipo={m.tipo_escopo}
+                        departamentos={m.departamentos}
+                        cargos={m.cargos}
+                        usuarios={m.usuarios}
+                        pessoas={m.escopo_usuarios}
+                      />
+                      {(m.tipo_escopo !== 'individual' || (m.usuarios?.length ?? 0) > 1) && (
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={m.marco_por_pessoa === true || m.marco_por_pessoa === 1 ? 'Medição individual' : 'Medição global'}
+                          sx={chipOutlinedSx}
+                        />
+                      )}
+                    </Stack>
                   </TableCell>
                   <TableCell sx={hideColXs}>
                     <TipoIndicadorChip tipo={m.chart_tipo} />

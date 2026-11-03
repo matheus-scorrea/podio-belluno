@@ -160,6 +160,7 @@ export type MetaLancavel = {
     cargo_id: number | null
     usuario_alvo_id: number | null
     valor_realizado?: number
+    valor_adesao?: number | null
   }[]
 }
 

@@ -564,7 +564,7 @@ class MetaRbacTest extends TestCase
         $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
             'valor_realizado' => 1,
             'data_evento' => '2026-09-09',
-        ])->assertUnprocessable();
+        ])->assertCreated();
 
         $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
             'valor_realizado' => 1,
@@ -653,7 +653,7 @@ class MetaRbacTest extends TestCase
         $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
             'valor_realizado' => 100,
             'data_evento' => '2026-09-09',
-        ])->assertUnprocessable();
+        ])->assertCreated();
 
         $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
             'valor_realizado' => 100,
@@ -779,6 +779,51 @@ class MetaRbacTest extends TestCase
             'marco_por_pessoa' => true,
         ])->assertCreated()
             ->assertJsonPath('marco_por_pessoa', false);
+    }
+
+    public function test_setor_por_pessoa_lider_precisa_da_pessoa_e_colaborador_lanca_a_si(): void
+    {
+        $org = $this->createOrg();
+
+        $criada = $this->actingAs($org['direcao'])->postJson('/api/metas', [
+            'titulo' => 'Atendimentos do setor',
+            'ano' => 2026,
+            'mes' => 9,
+            'tipo_escopo' => 'departamento',
+            'valor_meta' => 100,
+            'unidade' => 'un',
+            'sentido' => 'maior_melhor',
+            'chart_tipo' => 'gauge',
+            'chart_cor' => '#00A8E8',
+            'departamento_ids' => [$org['dept']->id],
+            'marco_por_pessoa' => true,
+        ])->assertCreated();
+
+        $id = $criada->json('id');
+
+        $this->actingAs($org['lider'])->postJson("/api/metas/{$id}/lancamentos", [
+            'valor_realizado' => 40,
+            'data_evento' => '2026-09-09',
+        ])->assertUnprocessable()
+            ->assertJsonPath('errors.usuario_alvo_id.0', 'Selecione a pessoa deste lançamento.');
+
+        $this->actingAs($org['lider'])->postJson("/api/metas/{$id}/lancamentos", [
+            'valor_realizado' => 40,
+            'data_evento' => '2026-09-09',
+            'usuario_alvo_id' => $org['colaborador']->id,
+        ])->assertCreated();
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$id}/lancamentos", [
+            'valor_realizado' => 80,
+            'data_evento' => '2026-09-10',
+        ])->assertCreated();
+
+        $lancaveis = collect($this->actingAs($org['lider'])->getJson('/api/metas/lancaveis?ano=2026&mes=9')->json('data'))
+            ->firstWhere('id', $id);
+        $this->assertTrue($lancaveis['por_grao']);
+        $this->assertGreaterThanOrEqual(2, count($lancaveis['graos']));
+        $this->assertTrue(collect($lancaveis['graos'])->contains('usuario_alvo_id', $org['colaborador']->id));
+        $this->assertEquals(80, collect($lancaveis['graos'])->firstWhere('usuario_alvo_id', $org['colaborador']->id)['valor_realizado']);
     }
 
     public function test_converte_entregas_do_banco_para_marco(): void

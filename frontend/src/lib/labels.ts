@@ -31,6 +31,26 @@ export function competenciaAbertaParaLancamento(ano: number, mes: number, isDire
   return ano === anterior.ano && mes === anterior.mes
 }
 
+export function competenciasParaLancamento(isDirecao = false, agora = new Date()): { ano: number; mes: number; label: string }[] {
+  const vigente = competenciaVigente(agora)
+  if (isDirecao) {
+    return Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(vigente.ano, vigente.mes - 1 - i, 1)
+      const ano = d.getFullYear()
+      const mes = d.getMonth() + 1
+      return { ano, mes, label: competenciaLabel(mes, ano) }
+    })
+  }
+
+  const opcoes = [{ ano: vigente.ano, mes: vigente.mes, label: competenciaLabel(vigente.mes, vigente.ano) }]
+  if (agora.getDate() <= JANELA_LANCAMENTO_DIAS) {
+    const anterior = vigente.mes === 1 ? { ano: vigente.ano - 1, mes: 12 } : { ano: vigente.ano, mes: vigente.mes - 1 }
+    opcoes.push({ ...anterior, label: competenciaLabel(anterior.mes, anterior.ano) })
+  }
+
+  return opcoes
+}
+
 export function destinosClone(agora = new Date()): { ano: number; mes: number; label: string }[] {
   const ano = agora.getFullYear()
   const mes = agora.getMonth() + 1

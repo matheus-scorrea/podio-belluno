@@ -64,8 +64,12 @@ function PainelUnico({ meta, unico }: { meta: DashboardMeta; unico: ComissaoVend
       <Typography variant="subtitle2">{unico.nome}</Typography>
       <Chip
         size="small"
-        label={unico.nivel ?? 'Nenhuma faixa atingida'}
-        sx={{ alignSelf: 'flex-start', bgcolor: unico.nivel ? '#10B98122' : '#E2E8F0', color: unico.nivel ? '#047857' : 'text.secondary' }}
+        label={rotuloNivel(unico.nivel)}
+        sx={{
+          alignSelf: 'flex-start',
+          bgcolor: unico.nivel && unico.nivel !== 'Piso' ? '#10B98122' : '#E2E8F0',
+          color: unico.nivel && unico.nivel !== 'Piso' ? '#047857' : 'text.secondary',
+        }}
       />
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.25 }}>
         <Dado label="Comissão" valor={formatReais(unico.comissao)} />
@@ -99,7 +103,7 @@ function TabelaVendedores({ vendedores }: { vendedores: ComissaoVendedor[] }) {
         {vendedores.map((v) => (
           <TableRow key={String(v.usuario_id)}>
             <TableCell>{v.nome}</TableCell>
-            <TableCell>{v.nivel ?? '—'}</TableCell>
+            <TableCell>{v.nivel === 'Piso' ? 'Piso da Meta 1' : (v.nivel ?? '—')}</TableCell>
             <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
               {formatReais(v.comissao)}
             </TableCell>
@@ -114,6 +118,17 @@ function TabelaVendedores({ vendedores }: { vendedores: ComissaoVendedor[] }) {
       </TableBody>
     </Table>
   )
+}
+
+function rotuloNivel(nivel: string | null): string {
+  if (!nivel) {
+    return 'Nenhuma faixa atingida'
+  }
+  if (nivel === 'Piso') {
+    return 'Piso da Meta 1'
+  }
+
+  return nivel
 }
 
 function Dado({ label, valor }: { label: string; valor: string }) {

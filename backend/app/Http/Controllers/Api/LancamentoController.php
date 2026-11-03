@@ -50,6 +50,7 @@ class LancamentoController extends Controller
                                 && (int) $l->usuario_alvo_id === (int) ($grao['usuario_alvo_id'] ?? 0);
                         });
                         $grao['valor_realizado'] = (float) ($ultimo?->valor_realizado ?? 0);
+                        $grao['valor_adesao'] = $ultimo?->valor_adesao !== null ? (float) $ultimo->valor_adesao : null;
 
                         return $grao;
                     })->values();

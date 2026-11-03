@@ -16,6 +16,8 @@ class StoreLancamentoRequest extends FormRequest
     {
         $meta = $this->route('meta');
         $porPessoa = $meta instanceof Meta && $meta->isPorPessoa();
+        $user = $this->user();
+        $exigePessoa = $porPessoa && ($user?->is_direcao || $user?->isLider());
 
         return [
             'valor_realizado' => ['required', 'numeric'],
@@ -24,7 +26,24 @@ class StoreLancamentoRequest extends FormRequest
             'observacao' => ['nullable', 'string', 'max:500'],
             'departamento_id' => ['nullable', 'exists:departamentos,id'],
             'cargo_id' => ['nullable', 'exists:cargos,id'],
-            'usuario_alvo_id' => [$porPessoa ? 'required' : 'nullable', 'exists:users,id'],
+            'usuario_alvo_id' => [$exigePessoa ? 'required' : 'nullable', 'exists:users,id'],
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'valor_realizado' => 'valor realizado',
+            'valor_adesao' => 'adesão',
+            'data_evento' => 'data do evento',
+            'usuario_alvo_id' => 'pessoa',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'usuario_alvo_id.required' => 'Selecione a pessoa deste lançamento.',
         ];
     }
 }

@@ -72,7 +72,7 @@ class MetaComissaoTest extends TestCase
 
         $item = collect($this->actingAs($org['colaborador'])->getJson('/api/dashboard?ano=2026&mes=9')->json('metas'))
             ->firstWhere('id', $criada->json('id'));
-        $this->assertSame('META 1', $item['comissao']['vendedores'][0]['nivel']);
+        $this->assertSame('Piso', $item['comissao']['vendedores'][0]['nivel']);
         $this->assertEquals(1000, $item['comissao']['vendedores'][0]['total']);
     }
 
@@ -120,6 +120,12 @@ class MetaComissaoTest extends TestCase
         $this->assertEquals(750, $item['comissao']['vendedores'][0]['comissao']);
         $this->assertEquals(500, $item['comissao']['vendedores'][0]['premio']);
         $this->assertEquals(1250, $item['comissao']['vendedores'][0]['total']);
+
+        $lancaveis = collect($this->actingAs($org['colaborador'])->getJson('/api/metas/lancaveis?ano=2026&mes=9')->json('data'))
+            ->firstWhere('id', $meta->id);
+        $this->assertTrue($lancaveis['por_grao']);
+        $this->assertEquals(15000, $lancaveis['graos'][0]['valor_realizado']);
+        $this->assertEquals(7500, $lancaveis['graos'][0]['valor_adesao']);
     }
 
     public function test_lider_lanca_comissao_do_setor_e_nao_de_outro(): void
@@ -161,6 +167,44 @@ class MetaComissaoTest extends TestCase
         $ana = collect($item['comissao']['vendedores'])->firstWhere('usuario_id', $org['colaborador']->id);
         $this->assertSame('META 6', $ana['nivel']);
         $this->assertEquals(3750, $ana['total']);
+    }
+
+    public function test_lancamento_mais_recente_substitui_mesmo_com_data_anterior(): void
+    {
+        $org = $this->createOrg();
+        $meta = Meta::factory()->create([
+            'created_by' => $org['direcao']->id,
+            'tipo_escopo' => 'individual',
+            'chart_tipo' => 'comissao',
+            'unidade' => 'R$',
+            'agregacao' => 'soma',
+            'marco_por_pessoa' => true,
+            'comissao_paga_piso' => true,
+            'niveis_comissao' => ComissaoService::tabelaBelluno(),
+        ]);
+        $meta->usuarios()->sync([$org['colaborador']->id]);
+        $meta->competencias()->update(['valor_meta' => 25000]);
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 11267,
+            'valor_adesao' => 14677,
+            'data_evento' => '2026-09-09',
+            'usuario_alvo_id' => $org['colaborador']->id,
+        ])->assertCreated();
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 15000,
+            'valor_adesao' => 15000,
+            'data_evento' => '2026-09-01',
+            'usuario_alvo_id' => $org['colaborador']->id,
+        ])->assertCreated();
+
+        $item = collect($this->actingAs($org['colaborador'])->getJson('/api/dashboard?ano=2026&mes=9')->json('metas'))
+            ->firstWhere('id', $meta->id);
+        $this->assertSame('META 2', $item['comissao']['vendedores'][0]['nivel']);
+        $this->assertEquals(15000, $item['comissao']['vendedores'][0]['venda']);
+        $this->assertEquals(15000, $item['comissao']['vendedores'][0]['adesao']);
+        $this->assertEquals(1750, $item['comissao']['vendedores'][0]['total']);
     }
 
     public function test_comissao_com_varias_pessoas_pode_ser_global_na_competencia(): void

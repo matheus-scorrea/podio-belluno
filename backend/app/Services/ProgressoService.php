@@ -103,7 +103,7 @@ class ProgressoService
                 ? 0
                 : ($meta->agregacao === 'soma' ? $valores->sum() : $valores->avg());
         } else {
-            $ultimo = (clone $lancamentos)->orderByDesc('data_evento')->orderByDesc('id')->first();
+            $ultimo = (clone $lancamentos)->orderByDesc('id')->first();
             $competencia->valor_realizado = $ultimo?->valor_realizado ?? 0;
         }
 
@@ -112,7 +112,7 @@ class ProgressoService
 
     public function ultimosPorGrao(Meta $meta, ?int $ano = null, ?int $mes = null)
     {
-        $query = $meta->lancamentos()->orderByDesc('data_evento')->orderByDesc('id');
+        $query = $meta->lancamentos()->orderByDesc('id');
         if ($ano && $mes) {
             $query->whereYear('data_evento', $ano)->whereMonth('data_evento', $mes);
         }

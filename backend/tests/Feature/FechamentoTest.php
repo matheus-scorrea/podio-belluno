@@ -496,7 +496,7 @@ class FechamentoTest extends TestCase
             ->assertJsonPath('metas_batidas', 1)
             ->assertJsonPath('total_bonus', 1000)
             ->assertJsonPath('usuarios.0.itens.0.valor_bonus', 1000)
-            ->assertJsonPath('usuarios.0.itens.0.nivel', 'META 1');
+            ->assertJsonPath('usuarios.0.itens.0.nivel', 'Piso');
     }
 
     public function test_comissao_so_paga_quem_atingiu_faixa(): void

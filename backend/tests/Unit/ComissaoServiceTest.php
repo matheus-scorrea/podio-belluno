@@ -29,7 +29,7 @@ class ComissaoServiceTest extends TestCase
         $this->assertEquals(0, $semPiso['total']);
 
         $comPiso = $servico->calcular($tabela, 10000, 3000, true);
-        $this->assertSame('META 1', $comPiso['nivel']);
+        $this->assertSame('Piso', $comPiso['nivel']);
         $this->assertEquals(5.0, $comPiso['percentual']);
         $this->assertEquals(500.0, $comPiso['comissao']);
         $this->assertEquals(500.0, $comPiso['premio']);

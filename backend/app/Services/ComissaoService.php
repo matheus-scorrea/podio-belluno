@@ -52,7 +52,10 @@ class ComissaoService
         }
 
         if ($pagaPiso && $faixas !== [] && ($venda > 0.00001 || $adesao > 0.00001)) {
-            return $this->pagarFaixa($faixas[0], 0, $venda, $adesao);
+            $pago = $this->pagarFaixa($faixas[0], 0, $venda, $adesao);
+            $pago['nivel'] = 'Piso';
+
+            return $pago;
         }
 
         return $vazio;

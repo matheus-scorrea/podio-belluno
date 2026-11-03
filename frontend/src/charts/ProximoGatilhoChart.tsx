@@ -38,7 +38,11 @@ function ProximoComissao({ meta }: { meta: DashboardMeta }) {
                   <Typography variant="subtitle2">{vendedor.nome}</Typography>
                 )}
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {alvo.concluido ? `${alvo.nivel.nome} concluída` : `Próximo: ${alvo.nivel.nome}`}
+                  {vendedor.nivel === 'Piso'
+                    ? 'Piso da Meta 1'
+                    : alvo.concluido
+                      ? `${alvo.nivel.nome} concluída`
+                      : `Próximo: ${alvo.nivel.nome}`}
                 </Typography>
               </Box>
               <BonusChip valor={premio} />

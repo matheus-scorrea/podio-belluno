@@ -486,7 +486,11 @@ export function MetaStepperPage() {
       ])
       navigate('/metas')
     },
-    onError: () => setError('Não foi possível salvar a meta. Verifique os campos obrigatórios.'),
+    onError: (err: unknown) => {
+      const data = (err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }).response?.data
+      const first = data?.errors ? Object.values(data.errors).flat().find((item) => typeof item === 'string') : undefined
+      setError(first ?? data?.message ?? 'Não foi possível salvar a meta. Verifique os campos obrigatórios.')
+    },
   })
 
   const ehComissao = chartTipo === 'comissao'
@@ -494,6 +498,13 @@ export function MetaStepperPage() {
   const ehFaixaUnidade = ehQuantitativa && modoBonus === 'faixa_unidade'
   const escopoPodeVariasPessoas = tipoEscopo !== 'individual' || usuariosSel.length > 1
   const mostrarPorPessoa = escopoPodeVariasPessoas
+  const escopoIncompleto = tipoEscopo === 'individual'
+    ? usuariosSel.length === 0
+    : tipoEscopo === 'cargo'
+      ? cargosSel.length === 0
+      : tipoEscopo === 'departamento'
+        ? deptsSel.length === 0
+        : false
   const podeUsarVariavel = ehQuantitativa && chartTipo !== 'column' && !(mostrarPorPessoa && porPessoa)
 
   useEffect(() => {
@@ -992,6 +1003,15 @@ export function MetaStepperPage() {
                     renderInput={(params) => <TextField {...params} label="Setores" />}
                   />
                 )}
+                {active === 1 && escopoIncompleto && (
+                  <Alert severity="warning">
+                    {tipoEscopo === 'individual'
+                      ? 'Escolha pelo menos um usuário para continuar.'
+                      : tipoEscopo === 'cargo'
+                        ? 'Escolha pelo menos um cargo para continuar.'
+                        : 'Escolha pelo menos um setor para continuar.'}
+                  </Alert>
+                )}
                 {mostrarPorPessoa && (
                   <FormControl>
                     <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
@@ -1119,11 +1139,15 @@ export function MetaStepperPage() {
                 </Button>
               </Stack>
               {active < 2 ? (
-                <Button variant="contained" onClick={() => setActive((s) => s + 1)} disabled={active === 0 && !titulo}>
+                <Button
+                  variant="contained"
+                  onClick={() => setActive((s) => s + 1)}
+                  disabled={(active === 0 && !titulo) || (active === 1 && escopoIncompleto)}
+                >
                   Continuar
                 </Button>
               ) : (
-                <Button variant="contained" onClick={() => mutation.mutate(payload())} disabled={mutation.isPending}>
+                <Button variant="contained" onClick={() => mutation.mutate(payload())} disabled={mutation.isPending || escopoIncompleto}>
                   {isEdit ? 'Salvar alterações' : 'Publicar meta'}
                 </Button>
               )}
