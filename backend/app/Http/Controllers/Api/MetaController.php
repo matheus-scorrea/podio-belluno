@@ -80,6 +80,7 @@ class MetaController extends Controller
         $data = $request->validated();
         $data['created_by'] = $request->user()->id;
         $data['marco_por_pessoa'] = $request->boolean('marco_por_pessoa');
+        $data['comissao_paga_piso'] = $request->boolean('comissao_paga_piso');
         $data = $this->normalizarIndicador($data);
 
         $meta = Meta::query()->create(collect($data)->except(['ano', 'mes', 'valor_meta', 'usuario_ids', 'cargo_ids', 'departamento_ids'])->all());
@@ -108,6 +109,7 @@ class MetaController extends Controller
     {
         $data = $request->validated();
         $data['marco_por_pessoa'] = $request->boolean('marco_por_pessoa');
+        $data['comissao_paga_piso'] = $request->boolean('comissao_paga_piso');
         $data = $this->normalizarIndicador($data);
         $meta->update(collect($data)->except(['ano', 'mes', 'valor_meta', 'usuario_ids', 'cargo_ids', 'departamento_ids'])->all());
         $this->syncEscopo($meta, $data);
@@ -243,6 +245,7 @@ class MetaController extends Controller
             $data['valor_meta'] = 1;
             $data['niveis_comissao'] = null;
             $data['marco_por_pessoa'] = $porPessoa;
+            $data['comissao_paga_piso'] = false;
             $data = $this->normalizarModoBonus($data, false);
         } elseif (($data['chart_tipo'] ?? '') === 'comissao') {
             $data['unidade'] = 'R$';
@@ -250,11 +253,13 @@ class MetaController extends Controller
             $data['agregacao'] = 'soma';
             $data['valor_meta'] = app(ComissaoService::class)->maiorVendaMin($data['niveis_comissao'] ?? []);
             $data['marco_por_pessoa'] = false;
+            $data['comissao_paga_piso'] = filter_var($data['comissao_paga_piso'] ?? false, FILTER_VALIDATE_BOOLEAN);
             $data = $this->normalizarModoBonus($data, false);
         } else {
             $data['agregacao'] = $porPessoa || ($data['unidade'] ?? '') === '%' ? 'media' : 'soma';
             $data['niveis_comissao'] = null;
             $data['marco_por_pessoa'] = $porPessoa;
+            $data['comissao_paga_piso'] = false;
             $data = $this->normalizarModoBonus($data, ($data['sentido'] ?? '') !== 'menor_melhor');
         }
 

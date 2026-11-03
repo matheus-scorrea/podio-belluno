@@ -265,6 +265,7 @@ class FechamentoService
                 $niveis,
                 (float) ($lancamento?->valor_realizado ?? 0),
                 (float) ($lancamento?->valor_adesao ?? 0),
+                (bool) $meta->comissao_paga_piso,
             );
             $bateu = $calc['total'] > 0;
 

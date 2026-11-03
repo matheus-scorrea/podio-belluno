@@ -328,6 +328,7 @@ export type MetaDetail = {
   niveis_faixa?: NivelFaixa[] | null
   niveis_comissao?: NivelComissao[] | null
   marco_por_pessoa?: boolean | 0 | 1
+  comissao_paga_piso?: boolean | 0 | 1
   usuarios: AuthUser[]
   cargos: Cargo[]
   departamentos: Departamento[]

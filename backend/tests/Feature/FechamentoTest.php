@@ -477,6 +477,28 @@ class FechamentoTest extends TestCase
             ->assertJsonPath('usuarios.0.itens.0.valor_bonus', 2750);
     }
 
+    public function test_comissao_piso_paga_primeira_faixa_mesmo_sem_bater_gatilho(): void
+    {
+        $org = $this->createOrg();
+        $meta = $this->metaComissao($org);
+        $meta->update(['comissao_paga_piso' => true]);
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$meta->id}/lancamentos", [
+            'valor_realizado' => 10000,
+            'valor_adesao' => 3000,
+            'data_evento' => '2026-09-09',
+            'usuario_alvo_id' => $org['colaborador']->id,
+        ])->assertCreated();
+
+        $this->actingAs($org['direcao'])->getJson('/api/fechamento?ano=2026&mes=9')
+            ->assertOk()
+            ->assertJsonPath('pessoas', 1)
+            ->assertJsonPath('metas_batidas', 1)
+            ->assertJsonPath('total_bonus', 1000)
+            ->assertJsonPath('usuarios.0.itens.0.valor_bonus', 1000)
+            ->assertJsonPath('usuarios.0.itens.0.nivel', 'META 1');
+    }
+
     public function test_comissao_so_paga_quem_atingiu_faixa(): void
     {
         $org = $this->createOrg();

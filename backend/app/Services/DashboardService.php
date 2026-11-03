@@ -405,11 +405,11 @@ class DashboardService
             $graos = $graos->filter(fn (array $g) => (int) ($g['departamento_id'] ?? 0) === (int) $user->departamento_id)->values();
         }
 
-        $vendedores = $graos->map(function (array $grao) use ($ultimos, $niveis) {
+        $vendedores = $graos->map(function (array $grao) use ($ultimos, $niveis, $meta) {
             $ultimo = $ultimos->first(fn (MetaLancamento $l) => (int) $l->usuario_alvo_id === (int) ($grao['usuario_alvo_id'] ?? 0));
             $venda = (float) ($ultimo?->valor_realizado ?? 0);
             $adesao = (float) ($ultimo?->valor_adesao ?? 0);
-            $calc = $this->comissao->calcular($niveis, $venda, $adesao);
+            $calc = $this->comissao->calcular($niveis, $venda, $adesao, (bool) $meta->comissao_paga_piso);
 
             return [
                 'usuario_id' => $grao['usuario_alvo_id'],

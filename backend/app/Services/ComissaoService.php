@@ -31,7 +31,7 @@ class ComissaoService
      *     adesao: float
      * }
      */
-    public function calcular(array $niveis, float $venda, float $adesao): array
+    public function calcular(array $niveis, float $venda, float $adesao, bool $pagaPiso = false): array
     {
         $vazio = [
             'nivel' => null,
@@ -47,21 +47,42 @@ class ComissaoService
         for ($i = count($faixas) - 1; $i >= 0; $i--) {
             $faixa = $faixas[$i];
             if ($venda + 0.00001 >= $faixa['venda_min'] && $adesao + 0.00001 >= $faixa['adesao_min']) {
-                $comissao = round($venda * $faixa['percentual'] / 100, 2);
-
-                return [
-                    'nivel' => $faixa['nome'] !== '' ? $faixa['nome'] : 'META '.($i + 1),
-                    'percentual' => $faixa['percentual'],
-                    'premio' => $faixa['premio'],
-                    'comissao' => $comissao,
-                    'total' => round($comissao + $faixa['premio'], 2),
-                    'venda' => $venda,
-                    'adesao' => $adesao,
-                ];
+                return $this->pagarFaixa($faixa, $i, $venda, $adesao);
             }
         }
 
+        if ($pagaPiso && $faixas !== [] && ($venda > 0.00001 || $adesao > 0.00001)) {
+            return $this->pagarFaixa($faixas[0], 0, $venda, $adesao);
+        }
+
         return $vazio;
+    }
+
+    /**
+     * @param  array{nome: string, venda_min: float, adesao_min: float, percentual: float, premio: float}  $faixa
+     * @return array{
+     *     nivel: string,
+     *     percentual: float,
+     *     premio: float,
+     *     comissao: float,
+     *     total: float,
+     *     venda: float,
+     *     adesao: float
+     * }
+     */
+    private function pagarFaixa(array $faixa, int $indice, float $venda, float $adesao): array
+    {
+        $comissao = round($venda * $faixa['percentual'] / 100, 2);
+
+        return [
+            'nivel' => $faixa['nome'] !== '' ? $faixa['nome'] : 'META '.($indice + 1),
+            'percentual' => $faixa['percentual'],
+            'premio' => $faixa['premio'],
+            'comissao' => $comissao,
+            'total' => round($comissao + $faixa['premio'], 2),
+            'venda' => $venda,
+            'adesao' => $adesao,
+        ];
     }
 
     /**

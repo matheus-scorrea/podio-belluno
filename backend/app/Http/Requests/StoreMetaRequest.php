@@ -19,6 +19,7 @@ class StoreMetaRequest extends FormRequest
     {
         $this->merge([
             'marco_por_pessoa' => $this->boolean('marco_por_pessoa'),
+            'comissao_paga_piso' => $this->boolean('comissao_paga_piso'),
             'variavel_id' => $this->filled('variavel_id') ? $this->integer('variavel_id') : null,
         ]);
     }
@@ -54,6 +55,7 @@ class StoreMetaRequest extends FormRequest
             'departamento_ids.*' => ['exists:departamentos,id'],
             'variavel_id' => ['nullable', 'integer', 'exists:variaveis,id'],
             'marco_por_pessoa' => ['boolean'],
+            'comissao_paga_piso' => ['boolean'],
             'niveis_comissao' => ['nullable', 'array', 'required_if:chart_tipo,comissao', 'min:1'],
             'niveis_comissao.*.nome' => ['required_with:niveis_comissao', 'string', 'max:40'],
             'niveis_comissao.*.venda_min' => ['required_with:niveis_comissao', 'numeric', 'min:0'],

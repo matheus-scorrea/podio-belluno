@@ -19,6 +19,7 @@ import {
   RadioGroup,
   Select,
   Stack,
+  Switch,
   Step,
   StepLabel,
   Stepper,
@@ -179,7 +180,7 @@ function TipoIndicadorHelp({ tipo }: { tipo: 'quantitativo' | 'marco' | 'comissa
           Cada vendedor lança a própria receita recorrente e a adesão no mês. As faixas (níveis) definem o percentual e o prêmio.
         </Typography>
         <Typography variant="body2" sx={{ mt: 0.75 }}>
-          Não usa piso, teto nem unidade extra: o pagamento sai da tabela de comissão.
+          O pagamento sai da tabela de comissão. Dá para ligar o piso da primeira faixa para o closer receber mesmo sem bater a Meta 1.
         </Typography>
       </>
     ) : (
@@ -354,6 +355,7 @@ export function MetaStepperPage() {
   const [niveis, setNiveis] = useState<NivelComissao[]>(TABELA_BELLUNO)
   const [faixas, setFaixas] = useState<NivelFaixa[]>(TABELA_SDR_REUNIOES)
   const [porPessoa, setPorPessoa] = useState(false)
+  const [pagaPiso, setPagaPiso] = useState(false)
   const [modoBonus, setModoBonus] = useState<ModoBonus>('fixo')
   const [bonusPiso, setBonusPiso] = useState('100')
   const [bonusTeto, setBonusTeto] = useState('')
@@ -411,6 +413,7 @@ export function MetaStepperPage() {
       setFaixas(meta.niveis_faixa)
     }
     setPorPessoa(meta.marco_por_pessoa === true || meta.marco_por_pessoa === 1)
+    setPagaPiso(meta.comissao_paga_piso === true || meta.comissao_paga_piso === 1)
     setModoBonus(meta.modo_bonus ?? 'fixo')
     setBonusPiso(String(meta.bonus_piso_percentual ?? 100))
     setBonusTeto(meta.bonus_teto_percentual == null ? '' : String(meta.bonus_teto_percentual))
@@ -446,6 +449,7 @@ export function MetaStepperPage() {
       cargo_ids: cargosSel.map((c) => c.id),
       departamento_ids: deptsSel.map((d) => d.id),
       niveis_comissao: ehComissao ? niveis : undefined,
+      comissao_paga_piso: ehComissao ? pagaPiso : false,
       niveis_faixa: !ehMarco && !ehComissao && sentido !== 'menor_melhor' && modoBonus === 'faixa_unidade'
         ? faixas
         : undefined,
@@ -716,6 +720,16 @@ export function MetaStepperPage() {
                     >
                       Adicionar gatilho
                     </Button>
+                    <FormControlLabel
+                      control={<Switch checked={pagaPiso} onChange={(e) => setPagaPiso(e.target.checked)} />}
+                      label="Pagar comissão no piso mesmo sem atingir a Meta 1"
+                    />
+                    {pagaPiso && (
+                      <Alert severity="info">
+                        Sem bater venda e adesão da primeira faixa, o closer ainda recebe o % e o prêmio dessa faixa
+                        sobre a receita lançada. As faixas seguintes continuam exigindo os gatilhos.
+                      </Alert>
+                    )}
                   </Stack>
                 ) : (
                   chartTipo !== 'marco' && (

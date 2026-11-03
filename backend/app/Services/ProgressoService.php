@@ -68,6 +68,7 @@ class ProgressoService
                     $niveis,
                     (float) $l->valor_realizado,
                     (float) ($l->valor_adesao ?? 0),
+                    (bool) $meta->comissao_paga_piso,
                 )['total']
             );
         } elseif ($meta->isMarcoPorPessoa()) {

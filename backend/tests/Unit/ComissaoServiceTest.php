@@ -19,6 +19,37 @@ class ComissaoServiceTest extends TestCase
         ];
     }
 
+    public function test_piso_paga_primeira_faixa_quando_nenhum_gatilho_bate(): void
+    {
+        $servico = new ComissaoService;
+        $tabela = ComissaoService::tabelaBelluno();
+
+        $semPiso = $servico->calcular($tabela, 10000, 3000);
+        $this->assertNull($semPiso['nivel']);
+        $this->assertEquals(0, $semPiso['total']);
+
+        $comPiso = $servico->calcular($tabela, 10000, 3000, true);
+        $this->assertSame('META 1', $comPiso['nivel']);
+        $this->assertEquals(5.0, $comPiso['percentual']);
+        $this->assertEquals(500.0, $comPiso['comissao']);
+        $this->assertEquals(500.0, $comPiso['premio']);
+        $this->assertEquals(1000.0, $comPiso['total']);
+    }
+
+    public function test_piso_nao_paga_sem_lancamento_e_nao_rebaixa_faixa_maior(): void
+    {
+        $servico = new ComissaoService;
+        $tabela = ComissaoService::tabelaBelluno();
+
+        $vazio = $servico->calcular($tabela, 0, 0, true);
+        $this->assertNull($vazio['nivel']);
+        $this->assertEquals(0, $vazio['total']);
+
+        $meta6 = $servico->calcular($tabela, 25000, 25000, true);
+        $this->assertSame('META 6', $meta6['nivel']);
+        $this->assertEquals(3750.0, $meta6['total']);
+    }
+
     #[DataProvider('tabelaBellunoProvider')]
     public function test_enquadra_tabela_belluno(
         float $venda,

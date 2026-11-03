@@ -30,6 +30,7 @@ class MetaFactory extends Factory
             'bonus_por_unidade_extra' => null,
             'niveis_faixa' => null,
             'marco_por_pessoa' => false,
+            'comissao_paga_piso' => false,
             'created_by' => User::factory()->direcao(),
             'ativo' => true,
         ];

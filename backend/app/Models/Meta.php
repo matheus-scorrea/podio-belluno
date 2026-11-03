@@ -31,6 +31,7 @@ use Illuminate\Support\Collection;
     'niveis_faixa',
     'niveis_comissao',
     'marco_por_pessoa',
+    'comissao_paga_piso',
     'created_by',
     'cloned_from_id',
     'variavel_id',
@@ -59,6 +60,7 @@ class Meta extends Model
             'niveis_faixa' => 'array',
             'niveis_comissao' => 'array',
             'marco_por_pessoa' => 'boolean',
+            'comissao_paga_piso' => 'boolean',
         ];
     }
 

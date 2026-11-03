@@ -48,6 +48,31 @@ class MetaComissaoTest extends TestCase
         $this->assertSame('R$', $criada->json('unidade'));
         $this->assertCount(6, $criada->json('niveis_comissao'));
         $this->assertEquals(25000, (float) $criada->json('valor_meta'));
+        $this->assertFalse($criada->json('comissao_paga_piso'));
+    }
+
+    public function test_direcao_liga_piso_da_comissao_do_closer(): void
+    {
+        $org = $this->createOrg();
+
+        $criada = $this->actingAs($org['direcao'])
+            ->postJson('/api/metas', $this->payloadComissao($org, ['comissao_paga_piso' => true]))
+            ->assertCreated();
+
+        $this->assertTrue($criada->json('comissao_paga_piso'));
+        $this->assertTrue((bool) Meta::query()->findOrFail($criada->json('id'))->comissao_paga_piso);
+
+        $this->actingAs($org['colaborador'])->postJson("/api/metas/{$criada->json('id')}/lancamentos", [
+            'valor_realizado' => 10000,
+            'valor_adesao' => 3000,
+            'data_evento' => '2026-09-09',
+            'usuario_alvo_id' => $org['colaborador']->id,
+        ])->assertCreated();
+
+        $item = collect($this->actingAs($org['colaborador'])->getJson('/api/dashboard?ano=2026&mes=9')->json('metas'))
+            ->firstWhere('id', $criada->json('id'));
+        $this->assertSame('META 1', $item['comissao']['vendedores'][0]['nivel']);
+        $this->assertEquals(1000, $item['comissao']['vendedores'][0]['total']);
     }
 
     public function test_colaborador_lanca_propria_comissao_e_nao_a_do_colega(): void
